@@ -1,0 +1,72 @@
+rules_version = '2';
+// Règles de sécurité Anaqa Shop — à coller dans Firebase > Firestore > Règles
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function connecte()  { return request.auth != null; }
+    function compte()    { return get(/databases/$(database)/documents/boutiques/$(b)/comptes/$(request.auth.uid)).data; }
+    function estAdmin()  { return connecte() && compte().role == 'admin'; }
+    function champs(l)   { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(l); }
+
+    match /boutiques/{b} {
+      allow read: if connecte();
+      allow write: if estAdmin();
+
+      // Rôle de l'appareil : créé une seule fois à la première connexion, jamais modifiable ensuite
+      match /comptes/{uid} {
+        allow read:   if connecte();
+        allow create: if connecte() && request.auth.uid == uid;
+        allow update, delete: if estAdmin();
+      }
+
+      // Catalogue : l'admin gère tout ; la caisse ne peut toucher QUE le stock
+      match /produits/{id} {
+        allow read:   if connecte();
+        allow create, delete: if estAdmin();
+        allow update: if estAdmin() || (connecte() && champs(['stock']));
+      }
+
+      // Ventes et retours : création seule. Aucune modification, aucune suppression, par personne.
+      match /ventes/{id} {
+        allow read:   if connecte();
+        allow create: if connecte()
+                      && request.resource.data.total is number
+                      && request.resource.data.date is string;
+        allow update, delete: if false;
+      }
+
+      // Journal des mouvements de stock : append-only
+      match /mouvements/{id} {
+        allow read:   if connecte();
+        allow create: if connecte();
+        allow update, delete: if false;
+      }
+
+      match /avoirs/{id} {
+        allow read:   if connecte();
+        allow create: if connecte();
+        allow update: if connecte() && champs(['utilise','venteUtilisation']);
+        allow delete: if false;
+      }
+
+      // Utilisateurs, droits et codes PIN : admin uniquement,
+      // sauf le changement de son propre PIN depuis l'appareil caisse
+      match /utilisateurs/{id} {
+        allow read:   if connecte();
+        allow create, delete: if estAdmin();
+        allow update: if estAdmin() || (connecte() && champs(['pin','pinDefaut']));
+      }
+
+      match /parametres/{id} {
+        allow read:  if connecte();
+        allow write: if estAdmin();
+      }
+
+      match /imports/{id} {
+        allow read:   if connecte();
+        allow create: if estAdmin();
+        allow update, delete: if false;
+      }
+    }
+  }
+}
