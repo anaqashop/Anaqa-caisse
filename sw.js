@@ -1,9 +1,9 @@
 /* Anaqa Shop — service worker v3
    Page de l'app et manifeste : réseau d'abord (dernière version publiée), cache en secours hors ligne.
    Icônes et bibliothèques externes : cache d'abord. */
-const CACHE='anaqa-v3';
-const LOCAUX=['./','manifest.json','icons/icon-192.png','icons/icon-512.png','icons/maskable-192.png',
- 'icons/maskable-512.png','icons/apple-touch-icon.png','icons/icon-32.png'];
+const CACHE='anaqa-v4';
+const LOCAUX=['./','manifest.json','icon-192.png','icon-512.png','maskable-192.png',
+ 'maskable-512.png','apple-touch-icon.png','icon-32.png'];
 const LIBS=[
  'https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-app-compat.js',
  'https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-auth-compat.js',
