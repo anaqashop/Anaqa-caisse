@@ -1619,8 +1619,11 @@ function construireRetour(v,lignes,num,modeRetour,reglements,extra){
 }
 function ecrireStockRetour(b,lignes,num,v){
   lignes.forEach(x=>{
-    b.update(col('produits').doc(x.l.ref),{stock:firebase.firestore.FieldValue.increment(x.q)});
-    b.set(col('mouvements').doc(),{ts:Date.now(),date:today(),ref:x.l.ref,nom:x.l.nom,type:'RETOUR',qte:x.q,vendeur:S.vendeur.nom,com:num+' / '+v.num});
+    // si la fiche produit n'existe plus (fusionn\u00e9e ou supprim\u00e9e), on rembourse sans toucher au stock
+    const existe=!!S.produits.find(p=>p.id===x.l.ref);
+    if(existe)b.update(col('produits').doc(x.l.ref),{stock:firebase.firestore.FieldValue.increment(x.q)});
+    b.set(col('mouvements').doc(),{ts:Date.now(),date:today(),ref:x.l.ref,nom:x.l.nom,type:'RETOUR',qte:existe?x.q:0,
+      vendeur:S.vendeur.nom,com:num+' / '+v.num+(existe?'':' \u2014 fiche produit supprim\u00e9e, stock non modifi\u00e9')});
   });
 }
 function creerAvoir(b,montant,origine){
@@ -1819,7 +1822,7 @@ function groupesDoublons(){
 function vueDoublons(){
   const gs=groupesDoublons();
   modale(`<h2>Doublons d\u00e9tect\u00e9s</h2>
-   ${gs.length?`<p class="muted">Choisis la fiche \u00e0 conserver. Les stocks sont additionn\u00e9s, les autres fiches passent en inactif \u2014 rien n\u2019est supprim\u00e9 et l\u2019historique des ventes reste intact.</p>
+   ${gs.length?`<p class="muted">Choisis la fiche \u00e0 conserver. Les stocks sont additionn\u00e9s et les autres fiches sont supprim\u00e9es. L\u2019historique des ventes et les tickets d\u00e9j\u00e0 \u00e9mis restent intacts.</p>
    ${gs.map((g,i)=>`<div class="card" style="box-shadow:none;border:1px solid var(--gris-clair)">
      <h3>${esc(nomComplet(g[0]))} \u2014 ${g.length} fiches</h3>
      ${g.map(p=>`<div class="ligne"><div class="info"><div class="nom">${esc(p.nom)}</div>
@@ -1834,12 +1837,12 @@ async function fusionner(cle,gardeId){
   const garde=g.find(p=>p.id===gardeId);if(!garde)return;
   const autres=g.filter(p=>p.id!==gardeId&&p.actif!==false);
   const stock=g.filter(p=>p.actif!==false).reduce((s,p)=>s+(+p.stock||0),0);
-  if(!confirm('Conserver \u00ab '+garde.nom+' \u00bb avec un stock de '+stock+', et d\u00e9sactiver '+autres.length+' fiche(s) ?'))return;
+  if(!confirm('Conserver \u00ab '+garde.nom+' \u00bb avec un stock de '+stock+', et supprimer '+autres.length+' fiche(s) ?'))return;
   try{
     const b=db.batch();
     b.update(col('produits').doc(gardeId),{stock,actif:true,maj:Date.now()});
-    autres.forEach(p=>b.update(col('produits').doc(p.id),{actif:false,favori:false,fusionneVers:gardeId,maj:Date.now()}));
-    autres.forEach(p=>b.set(col('mouvements').doc(),{ts:Date.now(),date:today(),ref:p.id,nom:p.nom,type:'FUSION',qte:-(+p.stock||0),vendeur:S.vendeur?S.vendeur.nom:'',com:'Fusionn\u00e9 vers '+garde.nom}));
+    autres.forEach(p=>b.delete(col('produits').doc(p.id)));
+    autres.forEach(p=>b.set(col('mouvements').doc(),{ts:Date.now(),date:today(),ref:p.id,nom:p.nom,type:'FUSION',qte:-(+p.stock||0),vendeur:S.vendeur?S.vendeur.nom:'',com:'Fusionn\u00e9 vers '+garde.nom+' (fiche supprim\u00e9e)'}));
     await suivre(b.commit());
     fermer();toast('Fiches fusionn\u00e9es','ok');vueProduits();
   }catch(e){toast('Refus\u00e9 : '+(e.code||e.message),'ko')}
@@ -2563,6 +2566,126 @@ async function appliquerCorrection(num,nom,id,avant){
 }
 
 
+/* ============ CORRECTION DES NOMS PAR FICHIER EXCEL ============ */
+const CORRECTIONS_SPECIALES={
+  'bermuda w':{nom:'Bermuda',marque:'Wassat'},
+  'bermuda wassat':{nom:'Bermuda',marque:'Wassat'},
+  'qamis enf':{nom:'Qamis enfant'},
+  'qamis enfant':{nom:'Qamis enfant'}
+};
+let planCorrections=null;
+function corrigerNoms(){
+  planCorrections=null;
+  modale(`<h2>Corriger les noms de produits</h2>
+   <p class="muted">Fichier Excel avec les colonnes <b>Nom actuel</b>, <b>Nom corrig\u00e9</b> et, si besoin, <b>Cat\u00e9gorie corrig\u00e9e</b>.
+   Les lignes sans correction sont ignor\u00e9es. Les ventes pass\u00e9es ne sont jamais modifi\u00e9es.</p>
+   <input type="file" id="fcn" accept=".xlsx,.xls,.csv" style="margin:14px 0">
+   <div id="cnprev"></div>
+   <div class="modal-ft"><button class="btn ghost" onclick="fermer()">Annuler</button>
+    <button class="btn" id="bcn" disabled onclick="appliquerCorrectionsNoms()">Appliquer</button></div>`,'lg');
+}
+document.addEventListener('change',async e=>{
+  if(e.target.id!=='fcn')return;
+  const f=e.target.files[0];if(!f)return;
+  try{
+    const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
+    planCorrections=construirePlanCorrections(rows);
+    afficherPlanCorrections();
+  }catch(err){$('#cnprev').innerHTML=`<p style="color:var(--rouge)">Lecture impossible : ${esc(err.message)}</p>`}
+});
+function construirePlanCorrections(rows){
+  const cible={},inconnus=[];
+  rows.forEach(r=>{
+    const actuel=String(r['Nom actuel']||r['nom actuel']||'').trim();
+    const nouveau=String(r['Nom corrig\u00e9']||r['Nom corrige']||'').trim();
+    const catNouv=String(r['Cat\u00e9gorie corrig\u00e9e']||r['Categorie corrigee']||'').trim();
+    if(!actuel||(!nouveau&&!catNouv))return;
+    const p=S.produits.find(x=>x.actif!==false&&x.nom.toLowerCase()===actuel.toLowerCase());
+    if(!p){inconnus.push(actuel);return}
+    const sp=CORRECTIONS_SPECIALES[actuel.toLowerCase()];
+    let nom=majuscule(sp?sp.nom:(nouveau||p.nom));
+    let marque=sp&&sp.marque?canonMarque(sp.marque):(p.marque||'');
+    // marque d\u00e9tect\u00e9e dans l'ancien nom et absente du nouveau : on la conserve
+    if(!marque){
+      const dispo=listeMarques().find(m=>cleMq(actuel).split(' ').join(' ').includes(cleMq(m))&&!cleMq(nom).includes(cleMq(m))&&cleMq(m).length>3);
+      if(dispo)marque=dispo;
+    }
+    const cat=majuscule(catNouv)||p.cat||'';
+    const cle=(cleNom(nom)+'|'+cleMq(marque)+'|'+cleNom(cat));
+    (cible[cle]=cible[cle]||{nom,marque,cat,membres:[]}).membres.push(p);
+  });
+  // produits d\u00e9j\u00e0 nomm\u00e9s comme une cible : ils rejoignent le groupe
+  Object.values(cible).forEach(g=>{
+    S.produits.filter(p=>p.actif!==false&&!g.membres.includes(p)
+      &&cleNom(p.nom)===cleNom(g.nom)&&cleMq(p.marque)===cleMq(g.marque)&&cleNom(p.cat||'')===cleNom(g.cat))
+      .forEach(p=>g.membres.push(p));
+  });
+  const renommages=[],fusions=[],prix=[];
+  Object.values(cible).forEach(g=>{
+    const garde=g.membres.find(p=>cleNom(p.nom)===cleNom(g.nom)&&cleMq(p.marque)===cleMq(g.marque))
+      ||g.membres.slice().sort((a,b)=>(+b.stock||0)-(+a.stock||0)||(+b.pv||0)-(+a.pv||0))[0];
+    const autres=g.membres.filter(p=>p.id!==garde.id);
+    const stock=g.membres.reduce((s,p)=>s+(+p.stock||0),0);
+    const change=cleNom(garde.nom)!==cleNom(g.nom)||cleMq(garde.marque)!==cleMq(g.marque)||cleNom(garde.cat||'')!==cleNom(g.cat);
+    if(autres.length)fusions.push({...g,garde,autres,stock});
+    else if(change)renommages.push({...g,garde});
+    const pv=[...new Set(g.membres.map(p=>+p.pv||0))];
+    if(autres.length&&pv.length>1)prix.push({nom:g.nom,garde:+garde.pv||0,autres:g.membres.filter(p=>p.id!==garde.id).map(p=>({nom:p.nom,pv:+p.pv||0}))});
+  });
+  return {renommages,fusions,prix,inconnus};
+}
+function afficherPlanCorrections(){
+  const P=planCorrections,z=$('#cnprev');if(!P||!z)return;
+  const b=$('#bcn');if(b)b.disabled=!(P.renommages.length||P.fusions.length);
+  z.innerHTML=`<div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px">
+     <div class="kpi"><div class="l">Renommages</div><div class="v">${P.renommages.length}</div></div>
+     <div class="kpi"><div class="l">Fusions</div><div class="v">${P.fusions.length}</div></div>
+     <div class="kpi"><div class="l">Ignor\u00e9s</div><div class="v">${P.inconnus.length}</div></div></div>
+   ${P.renommages.length?`<h3 style="font-size:14px;color:var(--or-fonce)">Renommages</h3>
+     <div style="max-height:22vh;overflow-y:auto;margin-bottom:10px">${P.renommages.map(g=>`<div class="ligne"><div class="info">
+       <div class="nom">${esc(g.garde.nom)}${g.garde.marque?' \u00b7 '+esc(g.garde.marque):''}</div>
+       <div class="det">\u2192 <b>${esc(g.nom)}</b>${g.marque?' \u00b7 <b>'+esc(g.marque)+'</b>':''}${cleNom(g.cat)!==cleNom(g.garde.cat||'')?' \u00b7 '+esc(g.cat):''}</div></div></div>`).join('')}</div>`:''}
+   ${P.fusions.length?`<h3 style="font-size:14px;color:var(--or-fonce)">Fusions <span class="muted" style="font-weight:400">\u2014 les fiches absorb\u00e9es sont supprim\u00e9es</span></h3>
+     <div style="max-height:26vh;overflow-y:auto;margin-bottom:10px">${P.fusions.map(g=>`<div class="ligne"><div class="info">
+       <div class="nom">${esc(g.nom)}${g.marque?' \u00b7 '+esc(g.marque):''} <span class="muted">(${g.cat})</span></div>
+       <div class="det">${g.membres.map(p=>esc(p.nom)+' ('+nb(p.stock||0)+')').join(' + ')} \u2192 stock <b>${nb(g.stock)}</b></div></div></div>`).join('')}</div>`:''}
+   ${P.prix.length?`<div class="card" style="background:var(--or-pale);box-shadow:none;padding:10px 12px">
+     <b>\u00c9carts de prix</b> \u2014 le prix de la fiche conserv\u00e9e est gard\u00e9 :
+     ${P.prix.map(x=>`<div class="det">${esc(x.nom)} : <b>${eur(x.garde)}</b> conserv\u00e9 (au lieu de ${x.autres.map(a=>eur(a.pv)).join(', ')})</div>`).join('')}</div>`:''}
+   ${P.inconnus.length?`<p class="muted" style="margin-top:8px">Non trouv\u00e9s dans le catalogue : ${P.inconnus.map(esc).join(', ')}</p>`:''}`;
+}
+async function appliquerCorrectionsNoms(){
+  const P=planCorrections;if(!P)return toast('Aucun fichier','ko');
+  const b=$('#bcn');if(b){b.innerHTML='<span class="spin"></span>';b.disabled=true}
+  try{
+    let lot=db.batch(),k=0,nr=0,nf=0;
+    const ecrire=async()=>{if(k){await suivre(lot.commit());lot=db.batch();k=0}};
+    for(const g of P.renommages){
+      lot.update(col('produits').doc(g.garde.id),{nom:g.nom,marque:g.marque||'',cat:g.cat,maj:Date.now()});nr++;
+      if(++k>=300)await ecrire();
+    }
+    for(const g of P.fusions){
+      lot.update(col('produits').doc(g.garde.id),{nom:g.nom,marque:g.marque||'',cat:g.cat,stock:g.stock,actif:true,maj:Date.now()});k++;
+      for(const p of g.autres){
+        lot.delete(col('produits').doc(p.id));
+        lot.set(col('mouvements').doc(),{ts:Date.now(),date:today(),ref:p.id,nom:nomComplet(p),type:'FUSION',
+          qte:-(+p.stock||0),vendeur:S.vendeur?S.vendeur.nom:'',com:'Fusionn\u00e9 vers '+g.nom+' (fiche supprim\u00e9e)'});
+        k+=2;
+      }
+      nf++;
+      if(k>=300)await ecrire();
+    }
+    await ecrire();
+    for(const g of [...P.renommages,...P.fusions])await ajouterMarqueListe(g.marque);
+    fermer();toast(nr+' renommage(s) \u00b7 '+nf+' fusion(s) appliqu\u00e9(s)','ok');
+    if(S.page==='stock')vueStock();
+  }catch(e){
+    const bb=$('#bcn');if(bb){bb.disabled=false;bb.textContent='Appliquer'}
+    toast('Refus\u00e9 : '+(e.code||e.message),'ko');
+  }
+}
+
 /* ============ ORDRE DES CATEGORIES ============ */
 function vueOrdreCats(){
   const l=ordreCats();
@@ -2817,7 +2940,8 @@ function vueOptions(){
        <button class="btn ghost" onclick="codeAppsScript()">Export auto Google Sheets</button></div>
      <div class="row" style="margin-top:10px;flex-wrap:wrap">
        <button class="btn ghost" onclick="importStock()">\u2191 Importer un stock</button>
-       <button class="btn ghost" onclick="recalculerResumes()">\u21BB Recalculer les statistiques</button></div></div>
+       <button class="btn ghost" onclick="recalculerResumes()">\u21BB Recalculer les statistiques</button>
+       <button class="btn ghost" onclick="corrigerNoms()">\u270E Corriger les noms (Excel)</button></div></div>
 
    <div class="card"><h3>Affichage de la caisse</h3>
      <p class="muted">Ordre actuel : ${ordreCats().join(' \u00b7 ')||'\u2014'}</p>
@@ -3073,7 +3197,7 @@ function confirmerSync(action){
   return confirm(enAttente+' op\u00e9ration(s) ne sont pas encore envoy\u00e9es au serveur.\n\nSi tu continues, elles resteront en attente sur cet appareil jusqu\u2019\u00e0 sa prochaine ouverture avec du r\u00e9seau.\n\nVoulez-vous quand m\u00eame '+action+' ?');
 }
 /* ============ VERSION ET MISE A JOUR ============ */
-const APP_VERSION='2.8.0';
+const APP_VERSION='2.9.1';
 let versionDispo=null;
 async function verifierVersion(silencieux){
   try{
