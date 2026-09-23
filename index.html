@@ -480,6 +480,16 @@ tr.neg td{background:#FDECEA}
   .periode .tabs button{padding:8px 4px;white-space:nowrap;min-width:0}
 }
 
+/* ---------- v2.7.1 : code-barres du ticket ---------- */
+.ticket-apercu .bc-ticket{width:100%;max-width:200px;height:auto;margin:0 auto;display:block}
+
+/* ---------- v2.8 : état de synchronisation ---------- */
+.sync{background:var(--or-pale);color:var(--or-fonce);padding:7px 14px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;justify-content:center}
+.sync .spin{width:14px;height:14px;border-width:2px;border-color:var(--or-clair);border-top-color:var(--or-fonce)}
+.syncok{background:#E6F4EC;color:var(--vert);padding:7px 14px;font-size:13px;font-weight:600;text-align:center}
+.sync-pt{width:9px;height:9px;border-radius:50%;background:var(--vert);display:inline-block;margin-right:7px;flex:0 0 auto}
+.sync-pt.ko{background:var(--rouge);width:auto;height:auto;min-width:9px;border-radius:999px;padding:1px 6px;color:#fff;font-size:10.5px;font-weight:700;line-height:1.5}
+
 #planche{display:grid;grid-template-columns:repeat(3,1fr);gap:4mm}
 .etq{border:1px dashed #bbb;padding:3mm;text-align:center;break-inside:avoid}
 .etq .en{font-size:11px;font-weight:700;margin-bottom:1mm}
@@ -601,7 +611,7 @@ async function semerUtilisateurs(){
     const b=db.batch();
     VENDEURS_INIT.forEach(v=>b.set(col('utilisateurs').doc(slug(v.nom)),{
       nom:v.nom,role:v.role,actif:true}));
-    await b.commit();
+    await suivre(b.commit());
   }catch(e){
     semeEchec=true;
     if(e&&e.code==='permission-denied')ecranBloque();
@@ -757,7 +767,7 @@ function rendre(){
    <header class="top">
      <span class="logo">ANAQA SHOP</span>
      <span style="font-size:11px;opacity:.75;cursor:pointer" onclick="verifierVersion()" title="V\u00e9rifier les mises \u00e0 jour">v${APP_VERSION}</span><span class="sp"></span>
-     <span class="badge-user" onclick="modaleVendeur()"><span class="pastille">${esc(S.vendeur.nom.slice(0,2).toUpperCase())}</span>${esc(S.vendeur.nom)}</span>
+     <span class="badge-user" onclick="modaleVendeur()"><span class="sync-pt" id="syncpt"></span><span class="pastille">${esc(S.vendeur.nom.slice(0,2).toUpperCase())}</span>${esc(S.vendeur.nom)}</span>
    </header>
    <div id="netbar"></div>
    <main id="vue"></main>
@@ -769,8 +779,38 @@ function rendre(){
   programmerMesureMenu();
 }
 function aller(p){invActif=false;S.page=p;rendre()}
-function majReseau(){const b=$('#netbar');if(!b)return;b.innerHTML=navigator.onLine?'':'<div class="offline">Hors ligne \u2014 les ventes sont enregistr\u00e9es et synchronis\u00e9es au retour du r\u00e9seau</div>'}
-window.addEventListener('online',majReseau);window.addEventListener('offline',majReseau);
+/* ---- Suivi de la synchronisation : \u00e9crit localement, pas encore envoy\u00e9 au serveur ---- */
+let enAttente=0,syncOk=false,minuteurSync=null;
+function suivre(p){
+  enAttente++;majReseau();
+  return Promise.resolve(p).then(r=>{enAttente=Math.max(0,enAttente-1);finSync();return r},
+    e=>{enAttente=Math.max(0,enAttente-1);finSync();throw e});
+}
+function finSync(){
+  majReseau();
+  if(enAttente===0&&navigator.onLine){
+    syncOk=true;majReseau();
+    clearTimeout(minuteurSync);minuteurSync=setTimeout(()=>{syncOk=false;majReseau()},2500);
+  }
+}
+function majReseau(){
+  const b=$('#netbar');
+  if(b){
+    let h='';
+    if(!navigator.onLine)h=`<div class="offline">Hors ligne \u2014 ${enAttente?'<b>'+enAttente+' op\u00e9ration(s) en attente</b> d\u2019envoi':'les ventes seront envoy\u00e9es au retour du r\u00e9seau'}</div>`;
+    else if(enAttente)h=`<div class="sync"><span class="spin"></span> Synchronisation \u2014 ${enAttente} op\u00e9ration(s)\u2026</div>`;
+    else if(syncOk)h='<div class="syncok">\u2713 Tout est synchronis\u00e9</div>';
+    b.innerHTML=h;
+  }
+  const pt=$('#syncpt');
+  if(pt){
+    const ko=!navigator.onLine||enAttente>0;
+    pt.className='sync-pt'+(ko?' ko':'');
+    pt.textContent=enAttente?String(enAttente):'';
+    pt.title=ko?(enAttente?enAttente+' op\u00e9ration(s) en attente d\u2019envoi':'hors ligne'):'tout est synchronis\u00e9';
+  }
+}
+window.addEventListener('online',()=>{majReseau();finSync()});window.addEventListener('offline',majReseau);
 
 /* ============ CAISSE ============ */
 const ORDRE_CATS_DEF=['V\u00eatement homme','Parfum','Alimentaire','Accessoires','V\u00eatement femme','Livre','Cosm\u00e9tique','V\u00eatement enfant'];
@@ -842,6 +882,7 @@ async function ajouterMarqueListe(m){
 }
 
 function estTelephone(){return window.innerWidth<=620}
+function peutSMS(){return /iPhone|iPod|Android.*Mobile|Windows Phone/i.test(navigator.userAgent)}
 function peutImprimer(){return !!(S.params&&S.params.imprimante)&&!/iPhone|iPod/.test(navigator.userAgent)}
 function appareilTactile(){return ('ontouchstart' in window)||(navigator.maxTouchPoints||0)>0}
 function libPdf(){return appareilTactile()?'Partager':'PDF'}
@@ -1287,7 +1328,7 @@ function finaliserVente(regsPaiement,modeSolde,rendu){
   }
   p.avs.filter(a=>a.used>0).forEach(a=>batch.update(col('avoirs').doc(a.num),{utilise:true,venteUtilisation:vente.num}));
   ecrireVente(batch,vente);
-  batch.commit().catch(e=>toast('Synchro diff\u00e9r\u00e9e : '+e.code,'ko'));
+  suivre(batch.commit()).catch(e=>toast('Synchro diff\u00e9r\u00e9e : '+e.code,'ko'));
   S.ventesCache=null;S.resumesCache=null;fermer();
   apresVente(vente,(rendu||0)+(exEEsp||0),exEEsp);
   reinitialiserCaisse();
@@ -1309,7 +1350,8 @@ function apresVente(v,rendu,renduEchange){
    <div class="row" style="margin-bottom:10px">
      ${peutImprimer()?`<button class="btn ghost" onclick="imprimerTicket('${v.num}')">\u{1F5A8} Imprimer</button>`:''}
      <button class="btn ghost" onclick="pdfTicket('${v.num}')">${libPdf()}</button>
-     <button class="btn ghost" onclick="whatsappTicket('${v.num}')">WhatsApp</button></div>
+     <button class="btn ghost" onclick="whatsappTicket('${v.num}')">WhatsApp</button>
+     ${peutSMS()?`<button class="btn ghost" onclick="smsTicket('${v.num}')">SMS</button>`:''}</div>
    <button class="btn xl" style="width:100%" onclick="fermer()">Vente suivante</button>`,'');
   dernierTicket=v;
 }
@@ -1346,19 +1388,26 @@ function htmlTicket(v){
     ${v.echangeRetour.avoirEmis?`<div>Avoir n\u00b0 ${esc(v.echangeRetour.avoirEmis)}</div>`:''}`:''}
   ${v.avoirReliquat?`<hr><div class="b">Nouvel avoir : ${eur(v.avoirReliquatMontant)}</div><div>n\u00b0 ${esc(v.avoirReliquat)}</div>`:''}
   ${v.avoirEmis?`<hr><div class="b">Avoir n\u00b0 ${esc(v.avoirEmis)}</div>`:''}
-  <hr><div class="c" style="font-size:9.5px">TVA non applicable, art. 293 B du CGI</div>
+  <hr><div class="c" style="margin:10px 0 12px"><svg class="bc-ticket" data-code="${esc(v.num)}"></svg></div>
+  <div class="c" style="font-size:9.5px;margin-top:10px">TVA non applicable, art. 293 B du CGI</div>
   <div class="c" style="font-size:9.5px">${esc(P.mention||'Merci de votre visite et a bientot')}</div>`;
+}
+function dessinerCodesTicket(racine){
+  (racine||document).querySelectorAll('.bc-ticket').forEach(s=>{
+    try{JsBarcode(s,s.dataset.code,{format:'CODE128',width:1.1,height:30,fontSize:9,margin:0,displayValue:true})}catch(e){}});
 }
 async function apercuTicket(num){
   const v=await venteParNum(num);if(!v)return toast('Ticket introuvable','ko');
   dernierTicket=v;
   modale(`<h2>Ticket ${esc(v.num)}</h2>
-   <div class="ticket-apercu">${htmlTicket(v)}</div>
+   <div class="ticket-apercu" id="apercuTk">${htmlTicket(v)}</div>
    <div class="row" style="margin-bottom:10px;flex-wrap:wrap">
      ${peutImprimer()?`<button class="btn ghost" onclick="imprimerTicket('${esc(v.num)}')">\u{1F5A8} Imprimer</button>`:''}
      <button class="btn ghost" onclick="pdfTicket('${esc(v.num)}')">${libPdf()}</button>
-     <button class="btn ghost" onclick="whatsappTicket('${esc(v.num)}')">WhatsApp</button></div>
+     <button class="btn ghost" onclick="whatsappTicket('${esc(v.num)}')">WhatsApp</button>
+     ${peutSMS()?`<button class="btn ghost" onclick="smsTicket('${esc(v.num)}')">SMS</button>`:''}</div>
    <button class="btn" style="width:100%" onclick="fermer()">Fermer</button>`);
+  dessinerCodesTicket($('#apercuTk'));
 }
 async function imprimerTicket(num){
   const v=await venteParNum(num);if(!v)return toast('Ticket introuvable','ko');
@@ -1372,6 +1421,7 @@ async function imprimerTicket(num){
     .c{text-align:center}.b{font-weight:700}hr{border:none;border-top:1px dashed #000;margin:5px 0}
     table{width:100%;border-collapse:collapse;font-size:10.5px}td{padding:1px 0}</style></head><body>${htmlTicket(v)}</body></html>`);
   doc.close();
+  try{dessinerCodesTicket(doc)}catch(e){}
   f.contentWindow.onafterprint=()=>setTimeout(nettoyerImpression,300);
   attenteRetourTicket=true;
   setTimeout(()=>{try{f.contentWindow.focus();f.contentWindow.print()}catch(e){toast('Impression impossible','ko');nettoyerImpression()}},150);
@@ -1379,7 +1429,7 @@ async function imprimerTicket(num){
 async function pdfTicket(num){
   const v=await venteParNum(num);if(!v)return;
   const {jsPDF}=window.jspdf;
-  const lignes=v.lignes.length, h=105+lignes*9+(v.reglements||[]).length*5+(v.echangeRetour?20+v.echangeRetour.lignes.length*4:0);
+  const lignes=v.lignes.length, h=125+lignes*9+(v.reglements||[]).length*5+(v.echangeRetour?20+v.echangeRetour.lignes.length*4:0);
   const d=new jsPDF({unit:'mm',format:[58,h]});
   let y=7;const c=t=>{d.text(t,29,y,{align:'center'});y+=4};
   const g=(a,b)=>{d.text(a,3,y);d.text(b,55,y,{align:'right'});y+=4};
@@ -1407,7 +1457,13 @@ async function pdfTicket(num){
     if(v.echangeRetour.avoirEmis)g('Avoir '+v.echangeRetour.avoirEmis,'')}
   if(v.avoirReliquat){g('Nouvel avoir',E(v.avoirReliquatMontant));g('n. '+v.avoirReliquat,'')}
   if(v.avoirEmis)g('Avoir n. '+v.avoirEmis,'');
-  y+=2;d.setFontSize(6.5);c('TVA non applicable, art. 293 B du CGI');c(P.mention||'Merci de votre visite');
+  try{
+    const cv=document.createElement('canvas');
+    JsBarcode(cv,v.num,{format:'CODE128',width:1.4,height:34,fontSize:10,margin:0,displayValue:true});
+    const lg=40,ht=lg*cv.height/cv.width;
+    y+=5;d.addImage(cv.toDataURL('image/png'),'PNG',(58-lg)/2,y,lg,ht);y+=ht+4;
+  }catch(e){}
+  y+=3;d.setFontSize(6.5);c('TVA non applicable, art. 293 B du CGI');c(P.mention||'Merci de votre visite');
   const nomFichier='Ticket_'+v.num+'.pdf';
   if(appareilTactile()&&navigator.canShare){
     try{
@@ -1422,10 +1478,9 @@ async function pdfTicket(num){
   attenteRetourTicket=appareilTactile();
   d.save(nomFichier);
 }
-async function whatsappTicket(num){
-  const v=await venteParNum(num);if(!v)return;
+function texteTicket(v){
   const P=S.params||{};
-  const t=[(P.nomBoutique||'ANAQA SHOP'),'Ticket '+v.num+' \u00b7 '+dateFr(v.date),'',
+  return [(P.nomBoutique||'ANAQA SHOP'),'Ticket '+v.num+' \u00b7 '+dateFr(v.date),'',
     ...v.lignes.map(l=>'\u2022 '+l.nom+' x'+l.qte+' \u2014 '+eur(l.total)),
     v.remiseTicket>0?'Remise : \u2212'+eur(v.remiseTicket):'','',
     'TOTAL : '+eur(v.total),
@@ -1433,17 +1488,31 @@ async function whatsappTicket(num){
     v.echangeRetour?'\u00c9change \u2014 rendus : '+v.echangeRetour.lignes.map(l=>l.nom+' x'+l.qte).join(', ')+' ('+(v.echangeRetour.solde>=0?'pay\u00e9 ':'rendu ')+eur(Math.abs(v.echangeRetour.solde))+')':'',
     v.avoirReliquat?'Nouvel avoir '+v.avoirReliquat+' : '+eur(v.avoirReliquatMontant):'','',
     'TVA non applicable, art. 293 B du CGI'].filter(Boolean).join('\n');
-  window.open('https://wa.me/?text='+encodeURIComponent(t),'_blank');
+}
+async function whatsappTicket(num){
+  const v=await venteParNum(num);if(!v)return;
+  window.open('https://wa.me/?text='+encodeURIComponent(texteTicket(v)),'_blank');
+}
+async function smsTicket(num){
+  const v=await venteParNum(num);if(!v)return;
+  const ios=/iPhone|iPad|iPod/i.test(navigator.userAgent);
+  window.location.href='sms:'+(ios?'&':'?')+'body='+encodeURIComponent(texteTicket(v));
 }
 
 /* ============ RETOURS ============ */
 let retourSel={vente:null,lignes:{}};
 function vueRetour(){
   $('#vue').innerHTML=`<div class="page">
-   <div class="card"><h3>Rechercher la vente d\u2019origine par produit</h3>
+   <div class="card"><h3>Rechercher par num\u00e9ro de ticket</h3>
+    <p class="muted" style="margin-bottom:8px">Le plus s\u00fbr : retrouve exactement la vente, remises comprises.</p>
+    <div class="defligne"><input type="text" id="rnum" placeholder="Num\u00e9ro complet ou derniers chiffres\u2026" autocomplete="off" autocapitalize="characters">
+      <button class="btn" onclick="chercherParTicket()">Chercher</button></div></div>
+   <div class="card"><h3>Ou rechercher par produit</h3>
     <div class="searchbar"><input type="text" id="rq" placeholder="Nom du produit vendu\u2026" autocomplete="off"></div>
     <div id="rsug" class="grille"></div></div>
    <div id="rres"></div></div>`;
+  $('#rnum').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();chercherParTicket()}});
+  if(!estTelephone())setTimeout(()=>{const n=$('#rnum');if(n)n.focus()},80);
   $('#rq').addEventListener('input',e=>{
     const q=e.target.value.trim().toLowerCase();
     const z=$('#rsug');
@@ -1452,19 +1521,40 @@ function vueRetour(){
       .map(p=>`<button class="pastille-prod" onclick="chercherVentes('${p.id}')"><span class="n">${esc(p.nom)}</span>${p.marque?`<span class="mq">${esc(p.marque)}</span>`:''}<span class="p">${eur(p.pv)}</span></button>`).join('')||'<p class="muted">Aucun produit</p>';
   });
 }
+async function chercherParTicket(){
+  const q=(($('#rnum')||{}).value||'').trim().toUpperCase();
+  if(q.length<2)return toast('Saisis au moins 2 caract\u00e8res','ko');
+  const z=$('#rres');z.innerHTML='<div class="card"><span class="spin" style="border-color:#ccc;border-top-color:var(--or)"></span> Recherche\u2026</div>';
+  try{
+    // num\u00e9ro complet : lecture directe
+    const d=await col('ventes').doc(q).get();
+    if(d.exists){const v=d.data();if(v.type!=='RETOUR')return afficherVentesTrouvees([v],null)}
+    // sinon : recherche sur les ventes r\u00e9centes (num\u00e9ro partiel)
+    const s=await col('ventes').orderBy('ts','desc').limit(300).get();
+    const l=s.docs.map(x=>x.data()).filter(v=>v.type!=='RETOUR'&&String(v.num||'').toUpperCase().includes(q));
+    if(!l.length)return z.innerHTML='<div class="card"><p class="muted">Aucun ticket ne correspond \u00e0 \u00ab '+esc(q)+' \u00bb parmi les 300 derni\u00e8res ventes. Essaie le num\u00e9ro complet ou la recherche par produit.</p></div>';
+    afficherVentesTrouvees(l,null);
+  }catch(e){z.innerHTML=`<div class="card"><p style="color:var(--rouge)">Erreur : ${esc(e.message)}</p></div>`}
+}
+function afficherVentesTrouvees(l,ref){
+  l=l.slice().sort((a,b)=>(b.ts||0)-(a.ts||0));
+  const paye=v=>{if(!ref)return null;const li=(v.lignes||[]).find(x=>x.ref===ref);return li?li:null};
+  $('#rres').innerHTML=`<div class="card"><h3>${l.length} vente(s) trouv\u00e9e(s)</h3><table class="mob"><thead><tr>
+      <th>Ticket</th><th>Date</th><th>Op\u00e9rateur</th><th class="tright">${ref?'Article':'Total'}</th><th></th></tr></thead><tbody>
+      ${l.map(v=>{const li=paye(v);
+        return `<tr><td><b>${esc(v.num)}</b></td>
+        <td data-l="Date">${dateFr(v.date)}</td><td data-l="Op\u00e9rateur">${esc(v.vendeur||'')}</td>
+        <td class="tright" data-l="${ref?'Article':'Total'}">${li?`<b>${eur(li.total)}</b>${li.remise>0?` <span class="pill ret">remis\u00e9</span>`:''}<div class="muted" style="font-size:11.5px">ticket ${eur(v.total)}</div>`:`<b>${eur(v.total)}</b>`}</td>
+        <td class="tright"><button class="btn sm" onclick="ouvrirRetour('${esc(v.num)}')">Retourner</button></td></tr>`}).join('')}
+      </tbody></table></div>`;
+}
 async function chercherVentes(ref){
   $('#rres').innerHTML='<div class="card"><span class="spin" style="border-color:#ccc;border-top-color:var(--or)"></span> Recherche\u2026</div>';
   try{
     const s=await col('ventes').where('refs','array-contains',ref).limit(60).get();
     const l=s.docs.map(d=>d.data()).filter(v=>v.type!=='RETOUR').sort((a,b)=>(b.ts||0)-(a.ts||0));
     if(!l.length)return $('#rres').innerHTML='<div class="card"><p class="muted">Aucune vente trouv\u00e9e pour ce produit.</p></div>';
-    $('#rres').innerHTML=`<div class="card"><h3>${l.length} vente(s) trouv\u00e9e(s)</h3><table class="mob"><thead><tr>
-      <th>Date</th><th>Ticket</th><th>Op\u00e9rateur</th><th class="tright">Total</th><th></th></tr></thead><tbody>
-      ${l.map(v=>`<tr><td><b>${esc(v.num)}</b></td>
-        <td data-l="Date">${dateFr(v.date)}</td><td data-l="Op\u00e9rateur">${esc(v.vendeur||'')}</td>
-        <td class="tright" data-l="Total"><b>${eur(v.total)}</b></td>
-        <td class="tright"><button class="btn sm" onclick="ouvrirRetour('${esc(v.num)}')">Retourner</button></td></tr>`).join('')}
-      </tbody></table></div>`;
+    afficherVentesTrouvees(l,ref);
   }catch(e){$('#rres').innerHTML=`<div class="card"><p style="color:var(--rouge)">Erreur : ${esc(e.message)}</p></div>`}
 }
 async function ouvrirRetour(num){
@@ -1559,7 +1649,7 @@ async function validerRetour(){
   b.set(col('ventes').doc(num),ret);
   ecrireResume(b,ret);
   ecrireStockRetour(b,lignes,num,v);
-  b.commit().catch(e=>toast('Synchro diff\u00e9r\u00e9e : '+e.code,'ko'));
+  suivre(b.commit()).catch(e=>toast('Synchro diff\u00e9r\u00e9e : '+e.code,'ko'));
   S.ventesCache=null;S.resumesCache=null;fermer();
   dernierTicket=ret;
   modale(`<h2 style="color:var(--vert)">\u2713 Retour enregistr\u00e9</h2>
@@ -1750,7 +1840,7 @@ async function fusionner(cle,gardeId){
     b.update(col('produits').doc(gardeId),{stock,actif:true,maj:Date.now()});
     autres.forEach(p=>b.update(col('produits').doc(p.id),{actif:false,favori:false,fusionneVers:gardeId,maj:Date.now()}));
     autres.forEach(p=>b.set(col('mouvements').doc(),{ts:Date.now(),date:today(),ref:p.id,nom:p.nom,type:'FUSION',qte:-(+p.stock||0),vendeur:S.vendeur?S.vendeur.nom:'',com:'Fusionn\u00e9 vers '+garde.nom}));
-    await b.commit();
+    await suivre(b.commit());
     fermer();toast('Fiches fusionn\u00e9es','ok');vueProduits();
   }catch(e){toast('Refus\u00e9 : '+(e.code||e.message),'ko')}
 }
@@ -1964,7 +2054,7 @@ async function creerViaEntree(suivant){
     const b=db.batch();
     b.set(col('produits').doc(id),d);
     if(q)b.set(col('mouvements').doc(),{ts:Date.now(),date:today(),ref:id,nom:nomComplet(d),type:'ENTREE',qte:q,vendeur:operateurChoisi('mop'),com:com||'Cr\u00e9ation \u00e0 l\u2019entr\u00e9e en stock',...(lot?{paLot:lot,paMoyen:lot}:{})});
-    await b.commit();
+    await suivre(b.commit());
     if(!S.produits.find(p=>p.id===id))S.produits.push(Object.assign({id},d));
     await ajouterMarqueListe(marque);
     toast(nomComplet(d)+' cr\u00e9\u00e9 \u00b7 stock '+q,'ok');
@@ -1997,7 +2087,7 @@ async function validerMouvement(type,suivant){
     b.set(col('mouvements').doc(),{ts:Date.now(),date:today(),ref:p.id,nom:nomComplet(p),type,qte:delta,
       vendeur:operateurChoisi('mop'),com,
       ...(entree&&lot>0?{paLot:lot,paMoyen:pmp}:{})});
-    await b.commit();
+    await suivre(b.commit());
     toast(entree?'Entr\u00e9e enregistr\u00e9e'+(pmp!==null?' \u00b7 PA moyen '+eur(pmp):''):'Stock corrig\u00e9','ok');
     if(suivant){const op=operateurChoisi('mop');fermer();mouvementStock('ENTREE',{cat,com});const s=$('#mop');if(s)s.value=op}
     else{fermer();vueStock()}
@@ -2030,9 +2120,9 @@ async function lancerImportStock(){
     const p=S.produits.find(q=>q.nom.toLowerCase()===x.nom.toLowerCase());if(!p)continue;
     b.update(col('produits').doc(p.id),{stock:x.qte});
     b.set(col('mouvements').doc(),{ts:Date.now(),date:today(),ref:p.id,nom:nomComplet(p),type:'INVENTAIRE',qte:x.qte-(+p.stock||0),vendeur:S.vendeur.nom,com:'Import fichier'});
-    n++;c+=2;if(c>=400){await b.commit();b=db.batch();c=0}
+    n++;c+=2;if(c>=400){await suivre(b.commit());b=db.batch();c=0}
   }
-  if(c)await b.commit();
+  if(c)await suivre(b.commit());
   fermer();toast(n+' stocks import\u00e9s','ok');vueStock();
 }
 
@@ -2235,13 +2325,13 @@ async function enregistrerInventaire(zero){
       b.update(col('produits').doc(x.p.id),maj);
       b.set(col('mouvements').doc(),{ts:Date.now(),date:today(),ref:x.p.id,nom:nomComplet(x.p),type:'INVENTAIRE',
         qte:x.d,vendeur:operateurChoisi('iop'),com:libelle});
-      k+=2;if(k>=400){await b.commit();b=db.batch();k=0}
+      k+=2;if(k>=400){await suivre(b.commit());b=db.batch();k=0}
     }
     for(const id of Object.keys(prixMap)){
       b.update(col('produits').doc(id),Object.assign({maj:Date.now()},prixMap[id]));
-      if(++k>=400){await b.commit();b=db.batch();k=0}
+      if(++k>=400){await suivre(b.commit());b=db.batch();k=0}
     }
-    if(k)await b.commit();
+    if(k)await suivre(b.commit());
     invVider();invActif=false;invOuvertes=new Set();invQ='';
     fermer();toast('Inventaire enregistr\u00e9 : '+r.ecarts.length+' \u00e9cart(s)'+(r.prix.length&&invAdmin()?', '+r.prix.length+' prix corrig\u00e9(s)':''),'ok');
     vueStock();
@@ -2311,9 +2401,9 @@ async function recalculerResumes(){
       const R=parJour[d];const arr=o=>{const r={};Object.keys(o).forEach(x=>r[x]=+(+o[x]).toFixed(2));return r};
       b.set(col('resumes').doc(d),{date:d,maj:Date.now(),ca:+R.ca.toFixed(2),marge:+R.marge.toFixed(2),qte:R.qte,nbt:R.nbt,nbDocs:R.nbDocs,rem:+R.rem.toFixed(2),
         modes:arr(R.modes),vend:arr(R.vend),prod:Object.fromEntries(Object.entries(R.prod).map(([x,p])=>[x,{ca:+p.ca.toFixed(2),q:p.q}]))});
-      if(++k>=400){await b.commit();b=db.batch();k=0}
+      if(++k>=400){await suivre(b.commit());b=db.batch();k=0}
     }
-    if(k)await b.commit();
+    if(k)await suivre(b.commit());
     S.resumesCache=null;fermer();toast(n+' ventes \u2192 '+dates.length+' jours recalcul\u00e9s','ok');
   }catch(e){fermer();toast('Recalcul impossible : '+(e.code||e.message),'ko')}
 }
@@ -2517,7 +2607,7 @@ async function viderCollection(nom){
   for(let tour=0;tour<40;tour++){
     const s=await col(nom).limit(400).get();
     if(s.empty)break;
-    const b=db.batch();s.docs.forEach(d=>b.delete(d.ref));await b.commit();
+    const b=db.batch();s.docs.forEach(d=>b.delete(d.ref));await suivre(b.commit());
     n+=s.size;if(s.size<400)break;
   }
   return n;
@@ -2539,9 +2629,9 @@ async function lancerReset(){
       let b=db.batch(),k=0,n=0;
       for(const p of S.produits){
         b.update(col('produits').doc(p.id),{stock:0,dateEntree:null});n++;
-        if(++k>=400){await b.commit();b=db.batch();k=0}
+        if(++k>=400){await suivre(b.commit());b=db.batch();k=0}
       }
-      if(k)await b.commit();
+      if(k)await suivre(b.commit());
       msg.push(n+' stocks remis \u00e0 0');
     }
     S.ventesCache=null;caJour.charge=false;
@@ -2612,8 +2702,8 @@ async function remplacerMarque(ancien,nv,nouvelleListe){
   const cibles=S.produits.filter(p=>cleMq(p.marque)===cleMq(ancien));
   try{
     let b=db.batch(),k=0;
-    for(const p of cibles){b.update(col('produits').doc(p.id),{marque:nv,maj:Date.now()});if(++k>=400){await b.commit();b=db.batch();k=0}}
-    if(k)await b.commit();
+    for(const p of cibles){b.update(col('produits').doc(p.id),{marque:nv,maj:Date.now()});if(++k>=400){await suivre(b.commit());b=db.batch();k=0}}
+    if(k)await suivre(b.commit());
     await ecrireListeMarques(nouvelleListe);
     fermer();
     const dbl=groupesDoublons().length;
@@ -2662,8 +2752,8 @@ async function appliquerDecoupage(){
   if(!choix.length)return fermer();
   try{
     let b=db.batch(),k=0;
-    for(const x of choix){b.update(col('produits').doc(x.p.id),{nom:x.nom,marque:x.marque,maj:Date.now()});if(++k>=400){await b.commit();b=db.batch();k=0}}
-    if(k)await b.commit();
+    for(const x of choix){b.update(col('produits').doc(x.p.id),{nom:x.nom,marque:x.marque,maj:Date.now()});if(++k>=400){await suivre(b.commit());b=db.batch();k=0}}
+    if(k)await suivre(b.commit());
     const lm=listeMarques();choix.forEach(x=>{if(!lm.some(m=>cleMq(m)===cleMq(x.marque)))lm.push(x.marque)});
     await ecrireListeMarques(lm);
     fermer();
@@ -2746,9 +2836,9 @@ function vueOptions(){
      <p class="muted">Version <b>${APP_VERSION}</b>${versionDispo?' \u2014 <span style="color:var(--rouge);font-weight:700">'+versionDispo+' disponible</span>':''} \u00b7 appareil ${S.role==='admin'?'administrateur':'caisse'} (${esc(S.user.email||'')})</p>
      <div class="row" style="margin-top:10px;flex-wrap:wrap">
        <button class="btn ghost" onclick="verifierVersion()">V\u00e9rifier les mises \u00e0 jour</button>
-       <button class="btn ghost" onclick="rechargerApp()">Forcer le rechargement</button></div>
+       <button class="btn ghost" onclick="if(confirmerSync('recharger l\u2019application'))rechargerApp()">Forcer le rechargement</button></div>
      <div class="row" style="margin-top:10px;flex-wrap:wrap">
-       <button class="btn ghost" onclick="auth.signOut()">D\u00e9connecter l\u2019appareil</button>
+       <button class="btn ghost" onclick="if(confirmerSync('d\u00e9connecter cet appareil'))auth.signOut()">D\u00e9connecter l\u2019appareil</button>
        ${admin?`<button class="btn ghost" onclick="ecranConfig()">Changer de projet Firebase</button>`:''}</div></div>
   </div>`;
 }
@@ -2797,9 +2887,9 @@ async function chargerCatalogueInit(){
     const id=slug(p.nom);if(S.produits.find(x=>x.id===id))continue;
     b.set(col('produits').doc(id),{nom:p.nom,cat:p.cat,famille:p.famille,type:p.type,pa:p.pa,pv:p.pv,
       stock:0,seuil:3,actif:true,favori:false,codeBarre:p.nom,maj:Date.now()});
-    n++;if(++c>=400){await b.commit();b=db.batch();c=0}
+    n++;if(++c>=400){await suivre(b.commit());b=db.batch();c=0}
   }
-  if(c)await b.commit();
+  if(c)await suivre(b.commit());
   toast(n+' produits ajout\u00e9s','ok');
 }
 function codeAppsScript(){
@@ -2978,8 +3068,12 @@ document.addEventListener('keydown',e=>{
 if('serviceWorker' in navigator&&location.protocol==='https:')
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 
+function confirmerSync(action){
+  if(!enAttente)return true;
+  return confirm(enAttente+' op\u00e9ration(s) ne sont pas encore envoy\u00e9es au serveur.\n\nSi tu continues, elles resteront en attente sur cet appareil jusqu\u2019\u00e0 sa prochaine ouverture avec du r\u00e9seau.\n\nVoulez-vous quand m\u00eame '+action+' ?');
+}
 /* ============ VERSION ET MISE A JOUR ============ */
-const APP_VERSION='2.6.2';
+const APP_VERSION='2.8.0';
 let versionDispo=null;
 async function verifierVersion(silencieux){
   try{
