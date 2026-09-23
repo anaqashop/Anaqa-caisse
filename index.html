@@ -359,15 +359,15 @@ tr.neg td{background:#FDECEA}
 .inv-row .info{flex:1;min-width:0}
 .inv-row .nom{font-weight:600;font-size:14px}
 .inv-row .det{font-size:12px;color:var(--gris)}
-.inv-in{width:78px!important;text-align:center;font-size:16px!important;padding:9px 6px!important}
+.inv-in{width:78px!important;text-align:center;font-size:16px!important;padding:6px!important;height:42px}
 .inv-ec{width:44px;text-align:right;font-weight:700;font-size:14px}
 
 /* ---------- v2.1 : prix dans l'inventaire ---------- */
 .inv-row{flex-wrap:wrap}
 .inv-champs{display:flex;align-items:flex-end;gap:6px}
 .inv-lb{display:flex;flex-direction:column;gap:2px}
-.inv-lb span{font-size:10px;color:var(--gris);text-transform:uppercase;letter-spacing:.03em;text-align:center}
-.inv-px{width:70px!important;text-align:center;font-size:14px!important;padding:8px 4px!important}
+.inv-lb span{font-size:10px;line-height:13px;height:13px;color:var(--gris);text-transform:uppercase;letter-spacing:.03em;text-align:center}
+.inv-px{width:70px!important;text-align:center;font-size:14px!important;padding:6px 4px!important;height:42px}
 .inv-px[readonly]{background:var(--creme2);color:var(--gris)}
 .inv-px.modif{border-color:var(--or-fonce)!important;background:var(--or-pale)}
 @media(max-width:620px){
@@ -515,6 +515,26 @@ tr.neg td{background:#FDECEA}
   .ligne-etq .etq-prix{flex:1 1 auto;padding-left:27px}
 }
 
+/* ---------- v2.11.1 : œil d'affichage du mot de passe ---------- */
+.mdp-wrap{position:relative;display:block}
+.mdp-wrap input{width:100%;padding-right:46px}
+.mdp-oeil{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:0;background:none;
+  font-size:17px;line-height:1;cursor:pointer;opacity:.4;border-radius:10px;padding:0}
+.mdp-oeil:hover{opacity:.65;background:var(--creme2)}
+.mdp-oeil.on{opacity:1}
+
+/* ---------- v2.12 : bouton de remontée rapide ---------- */
+.top{cursor:pointer}
+.top .badge-user{cursor:pointer}
+.btn-haut{position:fixed;right:14px;bottom:calc(var(--nav-h,64px) + 16px);
+  width:46px;height:46px;border-radius:50%;border:1px solid var(--or-clair);background:#fff;color:var(--or-fonce);
+  font-size:20px;font-weight:700;line-height:1;box-shadow:0 4px 14px rgba(120,90,40,.22);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transform:translateY(8px);
+  transition:opacity .18s,transform .18s,visibility .18s;z-index:60}
+.btn-haut.on{opacity:.95;visibility:visible;transform:translateY(0)}
+.btn-haut:hover{opacity:1;background:var(--or-pale)}
+@media print{.btn-haut{display:none}}
+
 #planche{display:grid;grid-template-columns:repeat(3,1fr);gap:4mm}
 .etq{border:1px dashed #bbb;padding:3mm;text-align:center;break-inside:avoid}
 .etq .en{font-size:11px;font-weight:700;margin-bottom:1mm}
@@ -617,13 +637,16 @@ function ecoutes(){
   unsub.push(col('produits').onSnapshot(s=>{
     S.produits=s.docs.map(d=>Object.assign({id:d.id},d.data()));
     if(!S.vendeur)return;
-    if(S.page==='caisse'&&document.getElementById('grille'))dessinerGrille();else if(!invActif)rendre();
+    if(S.page==='caisse'&&document.getElementById('grille'))dessinerGrille();else if(invActif)invRedessiner();else rendre();
   },e=>toast('Lecture produits : '+e.code,'ko')));
   unsub.push(col('utilisateurs').onSnapshot(async s=>{
     S.users=s.docs.map(d=>Object.assign({id:d.id},d.data()));
     if(!S.users.length&&S.role==='admin')await semerUtilisateurs();
     if(S.vendeur)rendre();else demarrerApp();
   },e=>toast('Lecture utilisateurs : '+e.code,'ko')));
+  unsub.push(invDoc().onSnapshot(d=>{
+    invRecevoir(d.exists?d.data():null);
+  },e=>{}));
   unsub.push(docParams().onSnapshot(d=>{S.params=d.exists?d.data():{};
     if(S.vendeur&&S.page!=='caisse'&&!invActif)rendre()}));
   demarrerApp();
@@ -700,7 +723,9 @@ function ecranConnexion(err){
    <div class="card" style="max-width:400px;width:100%;text-align:left">
     <h3>Connexion de l\u2019appareil</h3>
     <label class="field"><span>E-mail</span><input type="email" id="lem" autocomplete="username"></label>
-    <label class="field"><span>Mot de passe</span><input type="password" id="lmp" autocomplete="current-password"></label>
+    <label class="field"><span>Mot de passe</span>
+      <span class="mdp-wrap"><input type="password" id="lmp" autocomplete="current-password">
+        <button type="button" class="mdp-oeil" id="lmpo" aria-label="Afficher le mot de passe" onclick="basculerMdp('lmp',this)">\u{1F441}</button></span></label>
     <div class="err">${err?esc(err):''}</div>
     <button class="btn xl" style="width:100%" onclick="connecter()">Se connecter</button>
    </div></div>`;
@@ -789,18 +814,19 @@ function rendre(){
   const ongs=ongletsDispo();
   if(!ongs.find(o=>o[0]===S.page))S.page=ongs[0][0];
   APP().innerHTML=`
-   <header class="top">
+   <header class="top" onclick="remonter(event)" title="Revenir en haut">
      <span class="logo">ANAQA SHOP</span>
      <span style="font-size:11px;opacity:.75;cursor:pointer" onclick="verifierVersion()" title="V\u00e9rifier les mises \u00e0 jour">v${APP_VERSION}</span><span class="sp"></span>
-     <span class="badge-user" onclick="modaleVendeur()"><span class="sync-pt" id="syncpt"></span><span class="pastille">${esc(S.vendeur.nom.slice(0,2).toUpperCase())}</span>${esc(S.vendeur.nom)}</span>
+     <span class="badge-user" onclick="event.stopPropagation();modaleVendeur()"><span class="sync-pt" id="syncpt"></span><span class="pastille">${esc(S.vendeur.nom.slice(0,2).toUpperCase())}</span>${esc(S.vendeur.nom)}</span>
    </header>
    <div id="netbar"></div>
    <main id="vue"></main>
+   <button id="haut" class="btn-haut" onclick="remonter()" aria-label="Revenir en haut">\u2191</button>
    <nav class="bottom">${ongs.map(o=>`<button class="${S.page===o[0]?'on':''}" onclick="aller('${o[0]}')">
      <span class="ico"><svg viewBox="0 0 24 24">${ICO[o[0]]}</svg></span>${o[1]}</button>`).join('')}</nav>`;
   majReseau();
   ({caisse:vueCaisse,retour:vueRetour,produits:vueProduits,stock:vueStock,stats:vueStats,options:vueOptions}[S.page])();
-  requestAnimationFrame(mesurerMenu);setTimeout(mesurerMenu,400);
+  requestAnimationFrame(mesurerMenu);setTimeout(mesurerMenu,400);majBoutonHaut();
   programmerMesureMenu();
 }
 function aller(p){invActif=false;S.page=p;rendre()}
@@ -817,6 +843,30 @@ function finSync(){
     syncOk=true;majReseau();
     clearTimeout(minuteurSync);minuteurSync=setTimeout(()=>{syncOk=false;majReseau()},2500);
   }
+}
+/* ---- Remont\u00e9e rapide en haut de page ---- */
+function remonter(e){
+  if(e&&e.target&&e.target.closest&&e.target.closest('.badge-user'))return; // le badge ouvre le choix d'op\u00e9rateur
+  const z=$('#vue');
+  try{window.scrollTo({top:0,behavior:'smooth'});if(z)z.scrollTo({top:0,behavior:'smooth'})}
+  catch(err){window.scrollTo(0,0);if(z)z.scrollTop=0}
+  majBoutonHaut();
+}
+function defilementPage(){const z=$('#vue');return Math.max(window.scrollY||0,z?z.scrollTop:0)}
+function majBoutonHaut(){
+  const b=$('#haut');if(!b)return;
+  const visible=S.page!=='caisse'&&defilementPage()>window.innerHeight*1.2;
+  b.classList.toggle('on',visible);
+}
+window.addEventListener('scroll',majBoutonHaut,{passive:true});
+document.addEventListener('scroll',e=>{if(e.target&&e.target.id==='vue')majBoutonHaut()},{capture:true,passive:true});
+function basculerMdp(id,b){
+  const i=$('#'+id);if(!i)return;
+  const visible=i.type==='text';
+  i.type=visible?'password':'text';
+  b.classList.toggle('on',!visible);
+  b.setAttribute('aria-label',visible?'Afficher le mot de passe':'Masquer le mot de passe');
+  i.focus();
 }
 function majReseau(){
   const b=$('#netbar');
@@ -2194,20 +2244,91 @@ async function lancerImportStock(){
 let invActif=false,inv={comptes:{},prix:{},nouveaux:[],auto:[],debut:null},invOuvertes=new Set(),invQ='';
 function invAdmin(){return S.role==='admin'}
 function invCharger(){try{const x=JSON.parse(localStorage.getItem('ANAQA_INV')||'null');if(!x||!x.comptes)return null;x.prix=x.prix||{};x.nouveaux=x.nouveaux||[];return x}catch(e){return null}}
+const invDoc=()=>col('inventaire').doc('encours');
+const FV=()=>firebase.firestore.FieldValue;
+let invTimers={},invLocalEnAttente=null;
+/* copie locale de secours (et reprise d'un comptage d'avant le partage) */
 function invSauver(){try{localStorage.setItem('ANAQA_INV',JSON.stringify(inv))}catch(e){}}
-function invVider(){localStorage.removeItem('ANAQA_INV');inv={comptes:{},prix:{},nouveaux:[],auto:[],debut:null}}
+/* envoi partag\u00e9 : fusion champ par champ, pour ne jamais \u00e9craser le comptage d'un autre appareil */
+function invPousser(obj){
+  invSauver();
+  try{return suivre(invDoc().set(Object.assign({maj:Date.now(),majPar:(S.vendeur&&S.vendeur.nom)||''},obj),{merge:true}))}
+  catch(e){return Promise.resolve()}
+}
+function invRemplacer(d){
+  inv={comptes:d.comptes||{},prix:d.prix||{},nouveaux:d.nouveaux||[],auto:d.auto||[],debut:d.debut||null};
+  invSauver();
+  return invPousser(Object.assign({},inv));
+}
+function invVider(){
+  localStorage.removeItem('ANAQA_INV');
+  inv={comptes:{},prix:{},nouveaux:[],auto:[],debut:null};
+  Object.keys(invTimers).forEach(k=>clearTimeout(invTimers[k]));invTimers={};
+  try{suivre(invDoc().set({comptes:{},prix:{},nouveaux:[],auto:[],debut:null,maj:Date.now()}))}catch(e){}
+}
+/* r\u00e9ception d'une modification venue d'un autre appareil */
+function invRecevoir(d){
+  inv=d?{comptes:d.comptes||{},prix:d.prix||{},nouveaux:d.nouveaux||[],auto:d.auto||[],debut:d.debut||null}
+       :{comptes:{},prix:{},nouveaux:[],auto:[],debut:null};
+  invSauver();invRedessiner();
+}
+function invEnSaisie(){
+  const a=document.activeElement;
+  return !!(a&&(a.classList&&(a.classList.contains('inv-in')||a.classList.contains('inv-px'))||a.id==='invq'));
+}
+function invRedessiner(){
+  if(!invActif)return;
+  if(invEnSaisie())return invRafraichirChamps();
+  vueInventaire();
+}
+/* mise \u00e0 jour discr\u00e8te pendant que l'op\u00e9rateur tape, sans perdre le champ en cours */
+function invRafraichirChamps(){
+  document.querySelectorAll('.inv-in').forEach(i=>{
+    const id=i.dataset.id,v=inv.comptes[id],s=(v===undefined||v==='')?'':String(v);
+    if(i!==document.activeElement&&i.value!==s)i.value=s;
+    const p=S.produits.find(x=>x.id===id),ec=$('#ec-'+id);if(ec&&p)ec.innerHTML=ecartHtml(p);
+  });
+  invMajProgression();
+}
+function invMajProgression(){
+  const tous=invProduits(),n=invNbComptes(tous);
+  const pr=$('#invprog');if(pr)pr.textContent=n+' / '+tous.length;
+  const bar=$('#invbar');if(bar)bar.style.width=(tous.length?n/tous.length*100:0)+'%';
+}
+/* \u00e9criture retard\u00e9e : une seule par produit, une demi-seconde apr\u00e8s la derni\u00e8re frappe */
+function invPlanifier(id){
+  clearTimeout(invTimers[id]);
+  invTimers[id]=setTimeout(()=>{
+    delete invTimers[id];
+    const v=inv.comptes[id];
+    invPousser(v===undefined||v===''?{comptes:{[id]:FV().delete()}}:{debut:inv.debut||Date.now(),comptes:{[id]:v}});
+  },500);
+}
 function invProduits(){return S.produits.filter(p=>p.actif!==false)}
 function invNbComptes(l){return (l||invProduits()).filter(p=>inv.comptes[p.id]!==undefined&&inv.comptes[p.id]!=='').length}
 function ouvrirInventaire(){
+  if(invEnCours()){
+    const n=Object.keys(inv.comptes||{}).length;
+    return modale(`<h2>Inventaire en cours</h2>
+     <p class="muted">Un comptage commenc\u00e9 le ${inv.debut?new Date(inv.debut).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'\u2014'} est partag\u00e9 entre les appareils : <b style="color:var(--or-fonce)">${n} produit(s) compt\u00e9(s)</b>.</p>
+     <div class="modal-ft"><button class="btn ghost" onclick="invVider();inv.debut=Date.now();invPousser({debut:inv.debut});fermer();vueInventaire()">Recommencer</button>
+       <button class="btn" onclick="fermer();vueInventaire()">Reprendre</button></div>`);
+  }
   const b=invCharger();
   if(b&&(Object.keys(b.comptes).length||Object.keys(b.prix).length)){
     modale(`<h2>Inventaire en cours</h2>
-     <p class="muted">Un comptage commenc\u00e9 le ${new Date(b.debut).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})} a \u00e9t\u00e9 retrouv\u00e9 sur cet appareil : <b style="color:var(--anthracite)">${Object.keys(b.comptes).length} produit(s) d\u00e9j\u00e0 compt\u00e9(s)</b>.</p>
-     <div class="modal-ft"><button class="btn ghost" onclick="invVider();inv.debut=Date.now();fermer();vueInventaire()">Recommencer</button>
-       <button class="btn" onclick="inv=invCharger();fermer();vueInventaire()">Reprendre</button></div>`);
+     <p class="muted">Un comptage commenc\u00e9 le ${new Date(b.debut).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})} a \u00e9t\u00e9 retrouv\u00e9 sur cet appareil et sera partag\u00e9 avec les autres appareils : <b style="color:var(--anthracite)">${Object.keys(b.comptes).length} produit(s) d\u00e9j\u00e0 compt\u00e9(s)</b>.</p>
+     <div class="modal-ft"><button class="btn ghost" onclick="invVider();inv.debut=Date.now();invPousser({debut:inv.debut});fermer();vueInventaire()">Recommencer</button>
+       <button class="btn" onclick="invReprendreLocal()">Reprendre</button></div>`);
     return;
   }
-  inv={comptes:{},prix:{},nouveaux:[],auto:[],debut:Date.now()};vueInventaire();
+  inv={comptes:{},prix:{},nouveaux:[],auto:[],debut:Date.now()};invPousser(Object.assign({},inv));vueInventaire();
+}
+async function invReprendreLocal(){
+  const b=invCharger();if(!b)return fermer();
+  if(!b.debut)b.debut=Date.now();
+  await invRemplacer(b);
+  fermer();toast('Comptage transf\u00e9r\u00e9 et partag\u00e9','ok');vueInventaire();
 }
 function ecartHtml(p){
   const v=inv.comptes[p.id];
@@ -2228,7 +2349,7 @@ function vueInventaire(){
    <div class="card">
      <div class="repli-hd" style="cursor:default"><h3>Inventaire</h3>
        <button class="btn ghost sm" onclick="invActif=false;vueStock()">\u2190 Retour</button></div>
-     <p class="muted" style="margin:6px 0 10px">Saisis la quantit\u00e9 compt\u00e9e. Un champ laiss\u00e9 vide n\u2019est pas pris en compte. Ta saisie est sauvegard\u00e9e sur cet appareil.</p>
+     <p class="muted" style="margin:6px 0 10px">Saisis la quantit\u00e9 compt\u00e9e. Un champ laiss\u00e9 vide n\u2019est pas pris en compte. Ta saisie est partag\u00e9e avec les autres appareils.</p>
      <div class="inv-prog"><b id="invprog">${invNbComptes()} / ${tous.length}</b> compt\u00e9s
        <span class="inv-track"><i id="invbar" style="width:${tous.length?invNbComptes()/tous.length*100:0}%"></i></span></div>
      <div class="searchbar" style="margin-top:10px"><span class="searchwrap"><input type="text" id="invq" placeholder="Rechercher un produit\u2026" value="${esc(invQ)}" autocomplete="off"></span>
@@ -2272,6 +2393,12 @@ function invPrix(e){
   i.classList.toggle('modif',pr[k]!==undefined);
   if(!inv.debut)inv.debut=Date.now();
   invSauver();
+  clearTimeout(invTimers['px-'+id]);
+  invTimers['px-'+id]=setTimeout(()=>{
+    delete invTimers['px-'+id];
+    const m=inv.prix[id];
+    invPousser({debut:inv.debut,prix:{[id]:m?{pa:m.pa!==undefined?m.pa:FV().delete(),pv:m.pv!==undefined?m.pv:FV().delete()}:FV().delete()}});
+  },600);
 }
 function ficheAbsent(nom){
   if(!invAdmin())return toast('R\u00e9serv\u00e9 \u00e0 l\u2019appareil administrateur','ko');
@@ -2311,7 +2438,9 @@ async function creerAbsent(){
     if(q!=='')inv.comptes[id]=Math.max(0,Math.round(+q));
     if(!inv.nouveaux.includes(id))inv.nouveaux.push(id);
     if(!inv.debut)inv.debut=Date.now();
-    invSauver();invOuvertes.add(cat);invQ='';
+    const env={debut:inv.debut,nouveaux:FV().arrayUnion(id)};
+    if(q!=='')env.comptes={[id]:inv.comptes[id]};
+    invPousser(env);invOuvertes.add(cat);invQ='';
     await ajouterMarqueListe(marque);
     fermer();toast(nomComplet(d)+' cr\u00e9\u00e9','ok');vueInventaire();
   }catch(e){toast('Refus\u00e9 : '+(e.code||e.message),'ko')}
@@ -2324,7 +2453,8 @@ function invReporter(id,qte,cumul){
   inv.comptes[id]=cumul?Math.max(0,Math.round(+inv.comptes[id]||0))+n:n;
   if(!inv.auto)inv.auto=[];
   if(!inv.auto.includes(id))inv.auto.push(id);
-  invSauver();
+  if(!inv.debut)inv.debut=Date.now();
+  invPousser({debut:inv.debut,comptes:{[id]:inv.comptes[id]},auto:FV().arrayUnion(id)});
   if(invActif)vueInventaire();
   return true;
 }
@@ -2333,13 +2463,11 @@ function invSaisie(e){
   const i=e.target,id=i.dataset.id,v=i.value.trim();
   if(v==='')delete inv.comptes[id];else inv.comptes[id]=Math.max(0,Math.round(+v));
   if(!inv.debut)inv.debut=Date.now();
-  invSauver();
+  invSauver();invPlanifier(id);
   const p=S.produits.find(x=>x.id===id);
   const ec=$('#ec-'+id);if(ec&&p)ec.innerHTML=ecartHtml(p);
-  const tous=invProduits(),n=invNbComptes(tous);
-  const pr=$('#invprog');if(pr)pr.textContent=n+' / '+tous.length;
-  const bar=$('#invbar');if(bar)bar.style.width=(tous.length?n/tous.length*100:0)+'%';
-  const c=i.dataset.cat,gt=tous.filter(x=>(x.cat||'')===c);
+  invMajProgression();
+  const c=i.dataset.cat,gt=invProduits().filter(x=>(x.cat||'')===c);
   const g=document.getElementById('invg-'+slug(c||'x'));if(g)g.textContent=invNbComptes(gt)+'/'+gt.length;
 }
 function calculInventaire(zero){
@@ -3270,7 +3398,7 @@ function confirmerSync(action){
   return confirm(enAttente+' op\u00e9ration(s) ne sont pas encore envoy\u00e9es au serveur.\n\nSi tu continues, elles resteront en attente sur cet appareil jusqu\u2019\u00e0 sa prochaine ouverture avec du r\u00e9seau.\n\nVoulez-vous quand m\u00eame '+action+' ?');
 }
 /* ============ VERSION ET MISE A JOUR ============ */
-const APP_VERSION='2.11.0';
+const APP_VERSION='2.13.0';
 let versionDispo=null;
 async function verifierVersion(silencieux){
   try{
