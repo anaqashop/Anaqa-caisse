@@ -500,6 +500,12 @@ tr.neg td{background:#FDECEA}
   .panier .ligne .btn-remise{flex:0 0 auto}
 }
 
+/* ---------- v2.10.2 : actions de la fiche produit sur téléphone ---------- */
+@media(max-width:620px){
+  .actions-fiche{flex-direction:column;gap:8px}
+  .actions-fiche .btn{width:100%;white-space:nowrap}
+}
+
 #planche{display:grid;grid-template-columns:repeat(3,1fr);gap:4mm}
 .etq{border:1px dashed #bbb;padding:3mm;text-align:center;break-inside:avoid}
 .etq .en{font-size:11px;font-weight:700;margin-bottom:1mm}
@@ -3240,7 +3246,7 @@ function confirmerSync(action){
   return confirm(enAttente+' op\u00e9ration(s) ne sont pas encore envoy\u00e9es au serveur.\n\nSi tu continues, elles resteront en attente sur cet appareil jusqu\u2019\u00e0 sa prochaine ouverture avec du r\u00e9seau.\n\nVoulez-vous quand m\u00eame '+action+' ?');
 }
 /* ============ VERSION ET MISE A JOUR ============ */
-const APP_VERSION='2.10.1';
+const APP_VERSION='2.10.2';
 let versionDispo=null;
 async function verifierVersion(silencieux){
   try{
