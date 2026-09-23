@@ -1741,7 +1741,8 @@ function editerProduit(id){
    <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="eac" ${p.actif!==false?'checked':''} style="width:auto"> Actif</label></div>
    ${id?`<div class="actions-fiche">
      <button class="btn ghost" onclick="fermer();mouvementStock('ENTREE',{cat:'${esc(p.cat||'').replace(/'/g,'')}',prod:'${id}'})">+ Entr\u00e9e en stock</button>
-     <button class="btn ghost" onclick="fermer();mouvementStock('INVENTAIRE',{cat:'${esc(p.cat||'').replace(/'/g,'')}',prod:'${id}'})">Corriger le stock</button></div>`:''}
+     <button class="btn ghost" onclick="fermer();mouvementStock('INVENTAIRE',{cat:'${esc(p.cat||'').replace(/'/g,'')}',prod:'${id}'})">Corriger le stock</button>
+     <button class="btn ghost" onclick="fermer();etiquettesProduit('${id}',${Math.max(1,+p.stock||1)})">\u{1F3F7} \u00c9tiquettes</button></div>`:''}
    ${S.role==='admin'?'':'<p class="muted" style="margin-top:8px">Modification de la fiche r\u00e9serv\u00e9e \u00e0 l\u2019appareil administrateur.</p>'}
    <div class="modal-ft"><button class="btn ghost" onclick="fermer()">${S.role==='admin'?'Annuler':'Fermer'}</button>
     ${S.role==='admin'?`<button class="btn" onclick="sauverProduit('${id||''}')">Enregistrer</button>`:''}</div>`);
@@ -1749,7 +1750,7 @@ function editerProduit(id){
   ficheEnCours=id||null;
   majListeNoms();
 }
-let ficheEnCours=null;
+let ficheEnCours=null,nouvelEtq=null;
 function changerCat(){
   const s=$('#ec'),w=$('#wnc');
   if(s.value==='__new'){w.classList.remove('hidden');const i=$('#enc');if(i)i.focus()}
@@ -1815,9 +1816,12 @@ async function sauverProduit(id){
       d.stock=+$('#est').value||0;
       await col('produits').doc(nid).set(d);
       if(d.stock)await col('mouvements').add({ts:Date.now(),date:d.dateEntree,ref:nid,nom:nomComplet(d),type:'ENTREE',qte:d.stock,vendeur:S.vendeur?S.vendeur.nom:'',com:'Cr\u00e9ation de fiche'});
+      if(!S.produits.find(p=>p.id===nid))S.produits.push(Object.assign({id:nid},d));
+      nouvelEtq={id:nid,qte:d.stock};
     }
     await ajouterMarqueListe(marque);
     fermer();toast('Produit enregistr\u00e9','ok');
+    if(nouvelEtq){const e=nouvelEtq;nouvelEtq=null;proposerEtiquettes(e.id,e.qte)}
   }catch(e){toast('Refus\u00e9 : '+(e.code||e.message),'ko')}
 }
 
@@ -1868,6 +1872,34 @@ function ouvrirEtiquettes(){
     <button class="btn" onclick="imprimerEtiquettes()">Imprimer</button></div>`,'lg');
   listeEtq();
 }
+/* ---- \u00c9tiquettes d'un seul produit, quantit\u00e9 pr\u00e9-remplie ---- */
+function etiquettesProduit(id,qte,apres){
+  const p=S.produits.find(x=>x.id===id);if(!p)return;
+  const n=Math.max(1,Math.round(+qte||1));
+  modale(`<h2>\u{1F3F7} \u00c9tiquettes</h2>
+   <div class="kpi" style="margin-bottom:12px"><div class="l">${esc(nomComplet(p))}</div><div class="v">${eur(p.pv)}</div>
+     <div class="d">code ${esc(p.codeBarre||p.nom)}</div></div>
+   <label class="field"><span>Nombre d\u2019\u00e9tiquettes</span><input type="number" id="etqn" min="1" step="1" value="${n}" autofocus></label>
+   ${peutImprimer()?'':'<p class="muted">Sans imprimante d\u00e9clar\u00e9e, la planche s\u2019affiche \u00e0 l\u2019\u00e9cran : imprime-la depuis un ordinateur.</p>'}
+   <div class="modal-ft"><button class="btn ghost" onclick="fermer();${apres||''}">Plus tard</button>
+    <button class="btn" onclick="lancerEtiquettes('${id}')">Imprimer</button></div>`);
+}
+function lancerEtiquettes(id){
+  const p=S.produits.find(x=>x.id===id);if(!p)return;
+  const n=Math.max(1,Math.round(+($('#etqn')||{}).value||1));
+  let html='';
+  for(let i=0;i<n;i++)html+=`<div class="etq"><div class="en">${esc(nomComplet(p))}</div>
+    <svg class="bc" data-code="${esc(p.codeBarre||p.nom)}"></svg><div class="ep">${eur(p.pv)}</div></div>`;
+  const z=document.getElementById('planche');z.innerHTML=html;z.classList.remove('hidden');
+  z.querySelectorAll('.bc').forEach(s=>{try{JsBarcode(s,s.dataset.code,{format:'CODE128',width:1.5,height:38,fontSize:11,margin:2})}catch(e){}});
+  fermer();
+  setTimeout(()=>{window.print();setTimeout(()=>z.classList.add('hidden'),600)},150);
+}
+function proposerEtiquettes(id,qte){
+  if(!(+qte>0))return;
+  setTimeout(()=>etiquettesProduit(id,qte),350);
+}
+
 function listeEtq(){
   const q=(($('#eq')||{}).value||'').toLowerCase();
   $('#elist').innerHTML=S.produits.filter(p=>p.actif!==false&&(!q||p.nom.toLowerCase().includes(q)))
@@ -1875,7 +1907,7 @@ function listeEtq(){
     .map(p=>`<div class="ligne"><label style="flex:1;display:flex;gap:9px;align-items:center">
       <input type="checkbox" class="ecb" value="${p.id}" style="width:auto"> <b>${esc(nomComplet(p))}</b>
       <span class="muted">${eur(p.pv)}</span></label>
-      <input type="number" class="eqt" data-id="${p.id}" value="1" min="1" style="width:66px"></div>`).join('');
+      <input type="number" class="eqt" data-id="${p.id}" value="${Math.max(1,Math.round(+p.stock||0))}" min="1" style="width:66px"></div>`).join('');
 }
 function imprimerEtiquettes(){
   const sel=[...document.querySelectorAll('.ecb:checked')].map(c=>c.value);
@@ -2072,7 +2104,8 @@ async function creerViaEntree(suivant){
     await ajouterMarqueListe(marque);
     toast(nomComplet(d)+' cr\u00e9\u00e9 \u00b7 stock '+q,'ok');
     fermer();
-    if(suivant){mouvementStock('ENTREE',{cat,com});const s=$('#mop');if(s&&op)s.value=op}else vueStock();
+    if(suivant){mouvementStock('ENTREE',{cat,com});const s=$('#mop');if(s&&op)s.value=op}
+    else{vueStock();proposerEtiquettes(id,q)}
   }catch(e){toast('Refus\u00e9 : '+(e.code||e.message),'ko')}
 }
 async function validerMouvement(type,suivant){
@@ -2103,7 +2136,7 @@ async function validerMouvement(type,suivant){
     await suivre(b.commit());
     toast(entree?'Entr\u00e9e enregistr\u00e9e'+(pmp!==null?' \u00b7 PA moyen '+eur(pmp):''):'Stock corrig\u00e9','ok');
     if(suivant){const op=operateurChoisi('mop');fermer();mouvementStock('ENTREE',{cat,com});const s=$('#mop');if(s)s.value=op}
-    else{fermer();vueStock()}
+    else{fermer();vueStock();if(entree)proposerEtiquettes(p.id,q)}
   }catch(e){toast('Refus\u00e9 : '+(e.code||e.message),'ko')}
 }
 
@@ -3207,7 +3240,7 @@ function confirmerSync(action){
   return confirm(enAttente+' op\u00e9ration(s) ne sont pas encore envoy\u00e9es au serveur.\n\nSi tu continues, elles resteront en attente sur cet appareil jusqu\u2019\u00e0 sa prochaine ouverture avec du r\u00e9seau.\n\nVoulez-vous quand m\u00eame '+action+' ?');
 }
 /* ============ VERSION ET MISE A JOUR ============ */
-const APP_VERSION='2.9.2';
+const APP_VERSION='2.10.1';
 let versionDispo=null;
 async function verifierVersion(silencieux){
   try{
