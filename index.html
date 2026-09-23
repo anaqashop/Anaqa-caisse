@@ -1484,9 +1484,11 @@ async function pdfTicket(num){
   if(v.avoirEmis)g('Avoir n. '+v.avoirEmis,'');
   try{
     const cv=document.createElement('canvas');
-    JsBarcode(cv,v.num,{format:'CODE128',width:1.4,height:34,fontSize:10,margin:0,displayValue:true});
+    // barres en haute r\u00e9solution, num\u00e9ro \u00e9crit en texte PDF pour rester net
+    JsBarcode(cv,v.num,{format:'CODE128',width:4,height:110,margin:0,displayValue:false});
     const lg=40,ht=lg*cv.height/cv.width;
-    y+=5;d.addImage(cv.toDataURL('image/png'),'PNG',(58-lg)/2,y,lg,ht);y+=ht+4;
+    y+=5;d.addImage(cv.toDataURL('image/png'),'PNG',(58-lg)/2,y,lg,ht,undefined,'FAST');y+=ht+3;
+    d.setFont('courier','normal');d.setFontSize(7.5);c(v.num);d.setFont('helvetica','normal');y+=2;
   }catch(e){}
   y+=3;d.setFontSize(6.5);c('TVA non applicable, art. 293 B du CGI');c(P.mention||'Merci de votre visite');
   const nomFichier='Ticket_'+v.num+'.pdf';
@@ -1833,6 +1835,7 @@ async function sauverProduit(id){
       if(d.stock)await col('mouvements').add({ts:Date.now(),date:d.dateEntree,ref:nid,nom:nomComplet(d),type:'ENTREE',qte:d.stock,vendeur:S.vendeur?S.vendeur.nom:'',com:'Cr\u00e9ation de fiche'});
       if(!S.produits.find(p=>p.id===nid))S.produits.push(Object.assign({id:nid},d));
       nouvelEtq={id:nid,qte:d.stock};
+      if(invReporter(nid,d.stock,false))toast('Quantit\u00e9 report\u00e9e dans l\u2019inventaire','ok');
     }
     await ajouterMarqueListe(marque);
     fermer();toast('Produit enregistr\u00e9','ok');
@@ -1906,7 +1909,7 @@ function lancerEtiquettes(id){
   for(let i=0;i<n;i++)html+=`<div class="etq"><div class="en">${esc(nomComplet(p))}</div>
     <svg class="bc" data-code="${esc(p.codeBarre||p.nom)}"></svg><div class="ep">${eur(p.pv)}</div></div>`;
   const z=document.getElementById('planche');z.innerHTML=html;z.classList.remove('hidden');
-  z.querySelectorAll('.bc').forEach(s=>{try{JsBarcode(s,s.dataset.code,{format:'CODE128',width:1.5,height:38,fontSize:11,margin:2})}catch(e){}});
+  z.querySelectorAll('.bc').forEach(s=>{try{JsBarcode(s,s.dataset.code,{format:'CODE128',width:1.5,height:38,fontSize:11,margin:2,textMargin:1})}catch(e){}});
   fermer();
   setTimeout(()=>{window.print();setTimeout(()=>z.classList.add('hidden'),600)},150);
 }
@@ -1935,7 +1938,7 @@ function imprimerEtiquettes(){
       <svg class="bc" data-code="${esc(p.codeBarre||p.nom)}"></svg><div class="ep">${eur(p.pv)}</div></div>`;
   });
   const z=document.getElementById('planche');z.innerHTML=html;z.classList.remove('hidden');
-  z.querySelectorAll('.bc').forEach(s=>{try{JsBarcode(s,s.dataset.code,{format:'CODE128',width:1.5,height:38,fontSize:11,margin:2})}catch(e){}});
+  z.querySelectorAll('.bc').forEach(s=>{try{JsBarcode(s,s.dataset.code,{format:'CODE128',width:1.5,height:38,fontSize:11,margin:2,textMargin:1})}catch(e){}});
   fermer();
   setTimeout(()=>{window.print();setTimeout(()=>z.classList.add('hidden'),400)},250);
 }
@@ -2120,7 +2123,7 @@ async function creerViaEntree(suivant){
     toast(nomComplet(d)+' cr\u00e9\u00e9 \u00b7 stock '+q,'ok');
     fermer();
     if(suivant){mouvementStock('ENTREE',{cat,com});const s=$('#mop');if(s&&op)s.value=op}
-    else{vueStock();proposerEtiquettes(id,q)}
+    else{if(!invReporter(id,q,false))vueStock();proposerEtiquettes(id,q)}
   }catch(e){toast('Refus\u00e9 : '+(e.code||e.message),'ko')}
 }
 async function validerMouvement(type,suivant){
@@ -2151,7 +2154,7 @@ async function validerMouvement(type,suivant){
     await suivre(b.commit());
     toast(entree?'Entr\u00e9e enregistr\u00e9e'+(pmp!==null?' \u00b7 PA moyen '+eur(pmp):''):'Stock corrig\u00e9','ok');
     if(suivant){const op=operateurChoisi('mop');fermer();mouvementStock('ENTREE',{cat,com});const s=$('#mop');if(s)s.value=op}
-    else{fermer();vueStock();if(entree)proposerEtiquettes(p.id,q)}
+    else{fermer();if(entree&&invReporter(p.id,q,true))toast('Quantit\u00e9 report\u00e9e dans l\u2019inventaire','ok');else vueStock();if(entree)proposerEtiquettes(p.id,q)}
   }catch(e){toast('Refus\u00e9 : '+(e.code||e.message),'ko')}
 }
 
@@ -2188,11 +2191,11 @@ async function lancerImportStock(){
 }
 
 /* ============ MODE INVENTAIRE ============ */
-let invActif=false,inv={comptes:{},prix:{},nouveaux:[],debut:null},invOuvertes=new Set(),invQ='';
+let invActif=false,inv={comptes:{},prix:{},nouveaux:[],auto:[],debut:null},invOuvertes=new Set(),invQ='';
 function invAdmin(){return S.role==='admin'}
 function invCharger(){try{const x=JSON.parse(localStorage.getItem('ANAQA_INV')||'null');if(!x||!x.comptes)return null;x.prix=x.prix||{};x.nouveaux=x.nouveaux||[];return x}catch(e){return null}}
 function invSauver(){try{localStorage.setItem('ANAQA_INV',JSON.stringify(inv))}catch(e){}}
-function invVider(){localStorage.removeItem('ANAQA_INV');inv={comptes:{},prix:{},nouveaux:[],debut:null}}
+function invVider(){localStorage.removeItem('ANAQA_INV');inv={comptes:{},prix:{},nouveaux:[],auto:[],debut:null}}
 function invProduits(){return S.produits.filter(p=>p.actif!==false)}
 function invNbComptes(l){return (l||invProduits()).filter(p=>inv.comptes[p.id]!==undefined&&inv.comptes[p.id]!=='').length}
 function ouvrirInventaire(){
@@ -2204,7 +2207,7 @@ function ouvrirInventaire(){
        <button class="btn" onclick="inv=invCharger();fermer();vueInventaire()">Reprendre</button></div>`);
     return;
   }
-  inv={comptes:{},prix:{},nouveaux:[],debut:Date.now()};vueInventaire();
+  inv={comptes:{},prix:{},nouveaux:[],auto:[],debut:Date.now()};vueInventaire();
 }
 function ecartHtml(p){
   const v=inv.comptes[p.id];
@@ -2244,7 +2247,7 @@ function vueInventaire(){
            const pr=inv.prix[p.id]||{},pa=pr.pa??p.pa??0,pv=pr.pv??p.pv??0,ro=invAdmin()?'':'readonly';
            return `<div class="inv-row">
              <div class="info"><div class="nom">${esc(p.nom)}${p.marque?` <span class="mq-l">${esc(p.marque)}</span>`:''}${inv.nouveaux.includes(p.id)?' <span class="pill esp">nouveau</span>':''}</div>
-               <div class="det">th\u00e9orique ${nb(p.stock||0)}</div></div>
+               <div class="det">th\u00e9orique ${nb(p.stock||0)}${(inv.auto||[]).includes(p.id)?' \u00b7 <span class="pill">quantit\u00e9 saisie en stock</span>':''}</div></div>
              <div class="inv-champs">
                <label class="inv-lb"><span>PA</span><input type="number" class="inv-px ${pr.pa!==undefined?'modif':''}" data-id="${p.id}" data-k="pa" step="0.5" value="${pa}" ${ro}></label>
                <label class="inv-lb"><span>PV</span><input type="number" class="inv-px ${pr.pv!==undefined?'modif':''}" data-id="${p.id}" data-k="pv" step="0.5" value="${pv}" ${ro}></label>
@@ -2312,6 +2315,18 @@ async function creerAbsent(){
     await ajouterMarqueListe(marque);
     fermer();toast(nomComplet(d)+' cr\u00e9\u00e9','ok');vueInventaire();
   }catch(e){toast('Refus\u00e9 : '+(e.code||e.message),'ko')}
+}
+function invEnCours(){return !!(inv&&(inv.debut||Object.keys(inv.comptes||{}).length))}
+/* Un produit cr\u00e9\u00e9 ou re\u00e7u pendant l'inventaire : sa quantit\u00e9 est report\u00e9e dans le compt\u00e9 */
+function invReporter(id,qte,cumul){
+  if(!invEnCours()||!(+qte>0))return false;
+  const n=Math.max(0,Math.round(+qte));
+  inv.comptes[id]=cumul?Math.max(0,Math.round(+inv.comptes[id]||0))+n:n;
+  if(!inv.auto)inv.auto=[];
+  if(!inv.auto.includes(id))inv.auto.push(id);
+  invSauver();
+  if(invActif)vueInventaire();
+  return true;
 }
 function invBasculer(c){if(invOuvertes.has(c))invOuvertes.delete(c);else invOuvertes.add(c);vueInventaire()}
 function invSaisie(e){
@@ -3255,7 +3270,7 @@ function confirmerSync(action){
   return confirm(enAttente+' op\u00e9ration(s) ne sont pas encore envoy\u00e9es au serveur.\n\nSi tu continues, elles resteront en attente sur cet appareil jusqu\u2019\u00e0 sa prochaine ouverture avec du r\u00e9seau.\n\nVoulez-vous quand m\u00eame '+action+' ?');
 }
 /* ============ VERSION ET MISE A JOUR ============ */
-const APP_VERSION='2.10.3';
+const APP_VERSION='2.11.0';
 let versionDispo=null;
 async function verifierVersion(silencieux){
   try{
