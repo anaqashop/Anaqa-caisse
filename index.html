@@ -447,7 +447,7 @@ tr.neg td{background:#FDECEA}
 .kpis{grid-template-columns:repeat(auto-fit,minmax(0,1fr))}
 .kpis.k3{grid-template-columns:repeat(3,minmax(0,1fr))}
 .kpi{min-width:0}
-.kpi .v{overflow-wrap:anywhere}
+.kpi .v{white-space:nowrap;overflow:hidden}
 .tabs button{min-width:0}
 @media(max-width:620px){
   .actions-stock{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px}
@@ -858,6 +858,18 @@ function remonter(e){
   majBoutonHaut();
 }
 function defilementPage(){const z=$('#vue');return Math.max(window.scrollY||0,z?z.scrollTop:0)}
+/* ---- Montants des cases : r\u00e9duits pour tenir sur une ligne ---- */
+function ajusterKpis(){
+  document.querySelectorAll('.kpi .v').forEach(v=>{
+    v.style.fontSize='';
+    let t=parseFloat(getComputedStyle(v).fontSize)||17,n=0;
+    while(v.scrollWidth>v.clientWidth+1&&t>10&&n++<20){t-=1;v.style.fontSize=t+'px'}
+  });
+}
+let kpiAttente=0;
+function planifierKpis(){if(kpiAttente)return;kpiAttente=requestAnimationFrame(()=>{kpiAttente=0;ajusterKpis()})}
+try{new MutationObserver(planifierKpis).observe(document.documentElement,{childList:true,subtree:true})}catch(e){}
+window.addEventListener('resize',planifierKpis);
 function majBoutonHaut(){
   const b=$('#haut');if(!b)return;
   const visible=S.page!=='caisse'&&defilementPage()>window.innerHeight*1.2;
@@ -3403,7 +3415,7 @@ function confirmerSync(action){
   return confirm(enAttente+' op\u00e9ration(s) ne sont pas encore envoy\u00e9es au serveur.\n\nSi tu continues, elles resteront en attente sur cet appareil jusqu\u2019\u00e0 sa prochaine ouverture avec du r\u00e9seau.\n\nVoulez-vous quand m\u00eame '+action+' ?');
 }
 /* ============ VERSION ET MISE A JOUR ============ */
-const APP_VERSION='2.13.1';
+const APP_VERSION='2.13.2';
 let versionDispo=null;
 async function verifierVersion(silencieux){
   try{
