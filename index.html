@@ -535,6 +535,11 @@ tr.neg td{background:#FDECEA}
 .btn-haut:hover{opacity:1;background:var(--or-pale)}
 @media print{.btn-haut{display:none}}
 
+/* ---------- v2.13.1 : boutons d'envoi du ticket, jamais coupés ---------- */
+.tk-actions{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.tk-actions .btn{flex:1 1 0;min-width:88px;padding-left:6px!important;padding-right:6px!important;white-space:nowrap}
+@media (max-width:480px){.tk-actions .btn{font-size:15px}}
+
 #planche{display:grid;grid-template-columns:repeat(3,1fr);gap:4mm}
 .etq{border:1px dashed #bbb;padding:3mm;text-align:center;break-inside:avoid}
 .etq .en{font-size:11px;font-weight:700;margin-bottom:1mm}
@@ -1422,11 +1427,11 @@ function apresVente(v,rendu,renduEchange){
    ${v.avoirReliquat?`<div class="kpi" style="margin-bottom:8px;background:#E6F4EC"><div class="l">Nouvel avoir \u00e0 remettre</div><div class="v" style="color:var(--vert)">${eur(v.avoirReliquatMontant)}</div><div class="d">n\u00b0 ${esc(v.avoirReliquat)}</div></div>`:''}
    <p class="muted" style="margin-bottom:10px">Op\u00e9rateur : <b style="color:var(--anthracite)" id="vv-${esc(v.num)}">${esc(v.vendeur)}</b>
      <button class="btn ghost sm" style="margin-left:8px" onclick="corrigerVendeur('${esc(v.num)}','${esc(v.vendeur)}')">Corriger</button></p>
-   <div class="row" style="margin-bottom:10px">
-     ${peutImprimer()?`<button class="btn ghost" onclick="imprimerTicket('${v.num}')">\u{1F5A8} Imprimer</button>`:''}
-     <button class="btn ghost" onclick="pdfTicket('${v.num}')">${libPdf()}</button>
+   <div class="tk-actions">
+     ${peutSMS()?`<button class="btn ghost" onclick="smsTicket('${v.num}')">SMS</button>`:''}
      <button class="btn ghost" onclick="whatsappTicket('${v.num}')">WhatsApp</button>
-     ${peutSMS()?`<button class="btn ghost" onclick="smsTicket('${v.num}')">SMS</button>`:''}</div>
+     ${peutImprimer()?`<button class="btn ghost" onclick="imprimerTicket('${v.num}')">\u{1F5A8} Imprimer</button>`:''}
+     <button class="btn ghost" onclick="pdfTicket('${v.num}')">${libPdf()}</button></div>
    <button class="btn xl" style="width:100%" onclick="fermer()">Vente suivante</button>`,'');
   dernierTicket=v;
 }
@@ -1476,11 +1481,11 @@ async function apercuTicket(num){
   dernierTicket=v;
   modale(`<h2>Ticket ${esc(v.num)}</h2>
    <div class="ticket-apercu" id="apercuTk">${htmlTicket(v)}</div>
-   <div class="row" style="margin-bottom:10px;flex-wrap:wrap">
-     ${peutImprimer()?`<button class="btn ghost" onclick="imprimerTicket('${esc(v.num)}')">\u{1F5A8} Imprimer</button>`:''}
-     <button class="btn ghost" onclick="pdfTicket('${esc(v.num)}')">${libPdf()}</button>
+   <div class="tk-actions">
+     ${peutSMS()?`<button class="btn ghost" onclick="smsTicket('${esc(v.num)}')">SMS</button>`:''}
      <button class="btn ghost" onclick="whatsappTicket('${esc(v.num)}')">WhatsApp</button>
-     ${peutSMS()?`<button class="btn ghost" onclick="smsTicket('${esc(v.num)}')">SMS</button>`:''}</div>
+     ${peutImprimer()?`<button class="btn ghost" onclick="imprimerTicket('${esc(v.num)}')">\u{1F5A8} Imprimer</button>`:''}
+     <button class="btn ghost" onclick="pdfTicket('${esc(v.num)}')">${libPdf()}</button></div>
    <button class="btn" style="width:100%" onclick="fermer()">Fermer</button>`);
   dessinerCodesTicket($('#apercuTk'));
 }
@@ -3398,7 +3403,7 @@ function confirmerSync(action){
   return confirm(enAttente+' op\u00e9ration(s) ne sont pas encore envoy\u00e9es au serveur.\n\nSi tu continues, elles resteront en attente sur cet appareil jusqu\u2019\u00e0 sa prochaine ouverture avec du r\u00e9seau.\n\nVoulez-vous quand m\u00eame '+action+' ?');
 }
 /* ============ VERSION ET MISE A JOUR ============ */
-const APP_VERSION='2.13.0';
+const APP_VERSION='2.13.1';
 let versionDispo=null;
 async function verifierVersion(silencieux){
   try{
