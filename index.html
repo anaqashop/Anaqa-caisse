@@ -540,6 +540,18 @@ tr.neg td{background:#FDECEA}
 .tk-actions .btn{flex:1 1 0;min-width:88px;padding-left:6px!important;padding-right:6px!important;white-space:nowrap}
 @media (max-width:480px){.tk-actions .btn{font-size:15px}}
 
+/* ---------- v2.14 : packs ---------- */
+.pill.pk{background:#F3ECDD;color:var(--or-fonce)}
+.pastille-prod .s .pk{display:inline-block;padding:0 6px;border-radius:999px;background:#F3ECDD;color:var(--or-fonce);font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.03em}
+.pack-ck{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;margin:2px 0 12px;border:1px dashed var(--or-clair);border-radius:12px;background:#FFFCF6;cursor:pointer}
+.pack-ck input{margin-top:3px}
+.pack-zone{padding:12px;margin:-4px 0 12px;border-radius:12px;background:var(--creme2)}
+.compo-l{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.compo-l select{flex:1;min-width:0}
+.compo-l input{width:70px!important;text-align:center;flex:0 0 70px}
+.compo-info{font-size:12.5px;color:var(--gris);margin-top:10px;line-height:1.4}
+.inv-via .via{text-transform:none;letter-spacing:0;height:42px!important;display:flex;align-items:center;justify-content:center;width:78px;height:42px;font-size:11px;line-height:1.2;color:var(--gris);text-align:center;border:1px dashed var(--gris-clair);border-radius:10px;padding:2px 4px;overflow:hidden}
+
 #planche{display:grid;grid-template-columns:repeat(3,1fr);gap:4mm}
 .etq{border:1px dashed #bbb;padding:3mm;text-align:center;break-inside:avoid}
 .etq .en{font-size:11px;font-weight:700;margin-bottom:1mm}
@@ -965,6 +977,64 @@ function canonMarque(v){
   if(ALIAS_MARQUES[k])return ALIAS_MARQUES[k];
   return v.trim();
 }
+/* ============ PACKS : produit compos\u00e9 d'autres produits, sans stock propre ============ */
+function estPack(p){return !!(p&&Array.isArray(p.pack)&&p.pack.length)}
+function prodParId(id){return S.produits.find(x=>x.id===id)}
+/* stock disponible d'un pack = nombre de packs r\u00e9alisables avec le stock des composants */
+function stockPack(p){
+  let m=Infinity;
+  p.pack.forEach(c=>{const x=prodParId(c.ref),q=Math.max(1,+c.qte||1);m=Math.min(m,x?Math.floor((+x.stock||0)/q):0)});
+  return m===Infinity?0:m;
+}
+function stockAff(p){return estPack(p)?stockPack(p):(+p.stock||0)}
+function libPack(p){return p.pack.map(c=>{const x=prodParId(c.ref);return (+c.qte||1)+' \u00d7 '+(x?nomComplet(x):'produit supprim\u00e9')}).join(' + ')}
+function paCompo(compo){return +compo.reduce((s,c)=>{const x=prodParId(c.ref);return s+(x?(+c.qte||1)*(+x.pa||0):0)},0).toFixed(2)}
+/* composants modifi\u00e9s dans le stock pour une ligne vendue ou retourn\u00e9e */
+function mouvementsPack(l,signe,num,type,b){
+  (l.pack||[]).forEach(c=>{
+    const x=prodParId(c.ref),q=(+c.qte||1)*l.qte;
+    if(x)b.update(col('produits').doc(c.ref),{stock:firebase.firestore.FieldValue.increment(signe*q)});
+    b.set(col('mouvements').doc(),{ts:Date.now(),date:today(),ref:c.ref,nom:x?nomComplet(x):(c.nom||c.ref),type,qte:x?signe*q:0,
+      vendeur:S.vendeur.nom,com:num+' \u00b7 '+l.nom+(x?'':' \u2014 fiche supprim\u00e9e, stock non modifi\u00e9')});
+  });
+}
+/* \u00e9diteur de composition, partag\u00e9 par la fiche produit et l'inventaire */
+let compoEdit=[],compoPaAuto=true,compoPaId='';
+function optionsCompo(sel){
+  const exclus=ficheEnCours;
+  const l=S.produits.filter(p=>p.actif!==false&&!estPack(p)&&p.id!==exclus);
+  return '<option value="">\u2014 choisir \u2014</option>'+categoriesProduits().map(c=>{
+    const g=l.filter(p=>(p.cat||'')===c).sort((a,b)=>nomComplet(a).localeCompare(nomComplet(b),'fr'));
+    return g.length?`<optgroup label="${esc(c||'Sans cat\u00e9gorie')}">${g.map(p=>`<option value="${p.id}" ${p.id===sel?'selected':''}>${esc(nomComplet(p))}</option>`).join('')}</optgroup>`:'';
+  }).join('');
+}
+function htmlCompo(){
+  return `<div id="zcompo">${compoEdit.map((c,i)=>`<div class="compo-l">
+      <select onchange="compoEdit[${i}].ref=this.value;majCompo()">${optionsCompo(c.ref)}</select>
+      <input type="number" min="1" step="1" inputmode="numeric" value="${c.qte}" oninput="compoEdit[${i}].qte=Math.max(1,Math.round(+this.value||1));majCompo(true)">
+      <button class="btn-icon" type="button" title="Retirer" onclick="compoEdit.splice(${i},1);if(!compoEdit.length)compoEdit.push({ref:'',qte:1});dessinerCompo()">\u2715</button></div>`).join('')}
+    <button class="btn ghost sm" type="button" onclick="compoEdit.push({ref:'',qte:1});dessinerCompo()">+ Ajouter un produit au pack</button>
+    <div id="compoinfo" class="compo-info"></div></div>`;
+}
+function dessinerCompo(){const z=$('#zcompo');if(z)z.outerHTML=htmlCompo();else{const w=$('#wpack');if(w)w.insertAdjacentHTML('beforeend',htmlCompo())}majCompo()}
+function majCompo(frappe){
+  const z=$('#compoinfo');if(!z)return;
+  const ok=compoEdit.filter(c=>c.ref);
+  if(!ok.length){z.innerHTML='Choisis le ou les produits qui composent le pack.';return}
+  const pa=paCompo(ok),dispo=stockPack({pack:ok});
+  z.innerHTML=`Co\u00fbt des unit\u00e9s : <b>${eur(pa)}</b> \u00b7 disponible : <b>${nb(dispo)} pack${dispo>1?'s':''}</b> avec le stock actuel`;
+  const i=$('#'+compoPaId);if(i&&compoPaAuto)i.value=pa;
+}
+function lireCompo(){
+  const m={};compoEdit.filter(c=>c.ref).forEach(c=>{m[c.ref]=(m[c.ref]||0)+Math.max(1,Math.round(+c.qte||1))});
+  return Object.keys(m).map(ref=>{const x=prodParId(ref);return {ref,qte:m[ref],nom:x?nomComplet(x):''}});
+}
+function basculerPack(on,paId,masquer){
+  const z=$('#wpack');if(z)z.classList.toggle('hidden',!on);
+  (masquer||[]).forEach(id=>{const e=$('#'+id);if(e)e.classList.toggle('hidden',on)});
+  compoPaId=paId;
+  if(on){if(!compoEdit.length)compoEdit=[{ref:'',qte:1}];dessinerCompo()}
+}
 function nomComplet(p){return p?(p.nom+(p.marque?' \u00b7 '+p.marque:'')):''}
 async function ajouterMarqueListe(m){
   if(!m||S.role!=='admin')return;
@@ -1060,12 +1130,12 @@ function dessinerGrille(){
   if(!l.length)return g.innerHTML='<p class="vide">Aucun produit</p>';
   g.innerHTML=(fav?'<div class="bandeau-fav">\u2605 Mode favoris \u2014 touche un produit pour l\u2019\u00e9pingler. Il ne part pas au panier.</div>':'')
    +l.map(p=>{
-    const st=+p.stock||0,seuil=+p.seuil||0,bas=seuil>0&&st<=seuil;
+    const pk=estPack(p),st=stockAff(p),seuil=+p.seuil||0,bas=!pk&&seuil>0&&st<=seuil;
     return `<button class="pastille-prod ${st<=0&&!fav?'rupture':''} ${fav?'mode-fav':''}" onclick="${fav?`epingler('${p.id}')`:`ajouter('${p.id}')`}">
       <span class="fav ${p.favori?'on':''}" onclick="event.stopPropagation();basculerFavori('${p.id}')">${p.favori?'\u2605':'\u2606'}</span>
       <span class="n">${esc(p.nom)}</span>${p.marque?`<span class="mq">${esc(p.marque)}</span>`:''}
       ${fav?`<span class="s">${p.favori?'d\u00e9j\u00e0 favori':esc(p.cat||'')}</span><span class="epingle">${p.favori?'\u2605 \u00e9ping\u00e9':'+ Favoris'}</span>`
-           :`<span class="s ${bas?'bas':''}">${st<=0?'rupture':'stock '+nb(st)}</span><span class="p">${eur(p.pv)}</span>`}
+           :`<span class="s ${bas?'bas':''}">${pk?'<span class="pk">pack</span> ':''}${st<=0?'rupture':(pk?nb(st)+' dispo':'stock '+nb(st))}</span><span class="p">${eur(p.pv)}</span>`}
       </button>`}).join('');
 }
 async function epingler(id){
@@ -1077,7 +1147,8 @@ async function epingler(id){
 function ajouter(id){
   const p=S.produits.find(x=>x.id===id);if(!p)return;
   const l=S.panier.find(x=>x.ref===p.id);
-  if(l)l.qte++;else S.panier.push({ref:p.id,nom:nomComplet(p),marque:p.marque||'',pa:+p.pa||0,pv:+p.pv||0,qte:1,remise:0});
+  if(l)l.qte++;else S.panier.push(Object.assign({ref:p.id,nom:nomComplet(p),marque:p.marque||'',pa:+p.pa||0,pv:+p.pv||0,qte:1,remise:0},
+    estPack(p)?{pack:p.pack.map(c=>({ref:c.ref,qte:+c.qte||1,nom:c.nom||''}))}:{}));
   if(navigator.vibrate)navigator.vibrate(12);
   const pa=$('#panier');
   if(pa&&window.innerWidth>900)pa.classList.remove('replie');
@@ -1377,7 +1448,7 @@ function solderCredit(mode){
 function construireVente(t,regs){
   return {num:numTicket(),date:today(),ts:Date.now(),type:'VENTE',origine:'caisse',
     vendeur:S.vendeur.nom,vendeurId:S.vendeur.id,refs:S.panier.map(l=>l.ref),
-    lignes:S.panier.map(l=>({ref:l.ref,nom:l.nom,marque:l.marque||'',qte:l.qte,pa:l.pa,pv:l.pv,remise:+l.remise||0,total:+(l.pv*l.qte-(+l.remise||0)).toFixed(2)})),
+    lignes:S.panier.map(l=>Object.assign({ref:l.ref,nom:l.nom,marque:l.marque||'',qte:l.qte,pa:l.pa,pv:l.pv,remise:+l.remise||0,total:+(l.pv*l.qte-(+l.remise||0)).toFixed(2)},l.pack?{pack:l.pack}:{})),
     remiseTicket:+S.remiseTicket||0,remiseTotale:+t.rem.toFixed(2),
     total:+t.net.toFixed(2),marge:+t.marge.toFixed(2),
     reglements:regs,mode:regs.length>1?'MIX':(regs[0]?regs[0].mode:'ECHANGE')};
@@ -1386,6 +1457,7 @@ function ecrireVente(batch,vente){
   batch.set(col('ventes').doc(vente.num),vente);
   ecrireResume(batch,vente);
   S.panier.forEach(l=>{
+    if(l.pack&&l.pack.length){mouvementsPack(l,-1,vente.num,'VENTE',batch);return}
     batch.update(col('produits').doc(l.ref),{stock:firebase.firestore.FieldValue.increment(-l.qte)});
     batch.set(col('mouvements').doc(),{ts:Date.now(),date:today(),ref:l.ref,nom:l.nom,type:'VENTE',qte:-l.qte,vendeur:S.vendeur.nom,com:vente.num});
   });
@@ -1707,12 +1779,14 @@ function construireRetour(v,lignes,num,modeRetour,reglements,extra){
   return Object.assign({num,date:today(),ts:Date.now(),type:'RETOUR',origine:'caisse',
     vendeur:S.vendeur.nom,vendeurId:S.vendeur.id,venteOrigine:v.num,modeRetour,
     refs:lignes.map(x=>x.l.ref),
-    lignes:lignes.map(x=>({ref:x.l.ref,nom:x.l.nom,marque:x.l.marque||'',qte:-x.q,pa:x.l.pa,pv:x.l.pv,remise:0,total:-+(x.q*(x.l.total/x.l.qte)).toFixed(2)})),
+    lignes:lignes.map(x=>Object.assign({ref:x.l.ref,nom:x.l.nom,marque:x.l.marque||'',qte:-x.q,pa:x.l.pa,pv:x.l.pv,remise:0,total:-+(x.q*(x.l.total/x.l.qte)).toFixed(2)},x.l.pack?{pack:x.l.pack}:{})),
     remiseTicket:0,remiseTotale:0,total:-total,marge:-marge,
     reglements,mode:reglements.length>1?'MIX':(reglements[0]?reglements[0].mode:'AVOIR')},extra||{});
 }
 function ecrireStockRetour(b,lignes,num,v){
   lignes.forEach(x=>{
+    // pack : ce sont ses composants qui reviennent en stock
+    if(x.l.pack&&x.l.pack.length){mouvementsPack({pack:x.l.pack,qte:x.q,nom:x.l.nom},1,num+' / '+v.num,'RETOUR',b);return}
     // si la fiche produit n'existe plus (fusionn\u00e9e ou supprim\u00e9e), on rembourse sans toucher au stock
     const existe=!!S.produits.find(p=>p.id===x.l.ref);
     if(existe)b.update(col('produits').doc(x.l.ref),{stock:firebase.firestore.FieldValue.increment(x.q)});
@@ -1765,10 +1839,12 @@ function annulerEchange(){
 let pq='';
 let catsOuvertes=new Set();
 function ligneProduit(p){
-  return `<tr class="${(+p.stock||0)<0?'neg':((+p.seuil>0&&+p.stock<=+p.seuil)?'alerte':'')}">
-       <td><b>${esc(p.nom)}</b>${p.marque?` <span class="mq-l">${esc(p.marque)}</span>`:''}${p.actif===false?' <span class="pill nr">inactif</span>':''}${!p.pv?' <span class="pill ret">prix \u00e0 saisir</span>':''}</td>
+  const pk=estPack(p),st=stockAff(p);
+  return `<tr class="${!pk&&st<0?'neg':((!pk&&+p.seuil>0&&st<=+p.seuil)?'alerte':'')}">
+       <td><b>${esc(p.nom)}</b>${p.marque?` <span class="mq-l">${esc(p.marque)}</span>`:''}${pk?' <span class="pill pk">pack</span>':''}${p.actif===false?' <span class="pill nr">inactif</span>':''}${!p.pv?' <span class="pill ret">prix \u00e0 saisir</span>':''}
+         ${pk?`<div class="muted" style="font-size:11.5px;margin-top:2px">${esc(libPack(p))}</div>`:''}</td>
        <td class="tright" data-l="PV"><b>${eur(p.pv)}</b></td>
-       <td class="tright" data-l="Stock"><b style="${(+p.stock||0)<0?'color:var(--rouge)':''}">${nb(p.stock||0)}</b></td>
+       <td class="tright" data-l="${pk?'Dispo':'Stock'}"><b style="${!pk&&st<0?'color:var(--rouge)':''}">${nb(st)}</b></td>
        <td class="muted" data-l="Entr\u00e9e">${p.dateEntree?dateFr(p.dateEntree):'\u2014'}</td>
        <td><button class="btn-icon" onclick="basculerFavori('${p.id}')" style="background:none" title="Favori en caisse">${p.favori?'\u2605':'\u2606'}</button></td>
        <td class="tright">${p.actif===false&&S.role==='admin'?`<button class="btn sm ghost" onclick="reactiverProduit('${p.id}')">R\u00e9activer</button> `:''}
@@ -1812,9 +1888,13 @@ function editerProduit(id){
    <div id="alertedbl"></div>
    <div class="row"><label class="field"><span>Prix d\u2019achat</span><input type="number" id="epa" step="0.5" value="${p.pa||0}"></label>
     <label class="field"><span>Prix de vente</span><input type="number" id="epv" step="0.5" value="${p.pv||0}"></label></div>
-   <div class="row"><label class="field"><span>Stock</span><input type="number" id="est" value="${p.stock||0}" ${id?'disabled':''}></label>
+   ${S.role==='admin'&&(!id||estPack(p)||!(+p.stock))?`<label class="pack-ck"><input type="checkbox" id="epk" ${estPack(p)?'checked':''} onchange="basculerPack(this.checked,'epa',['wst','wstm'])" style="width:auto">
+     <span><b>C\u2019est un pack</b> <span class="muted">\u2014 plusieurs produits vendus ensemble \u00e0 un prix</span></span></label>`
+:''}
+   <div id="wpack" class="hidden pack-zone"><p class="muted" style="margin:0 0 8px">Vendre un pack retire ses produits du stock. Le pack n\u2019a pas de stock \u00e0 lui.</p></div>
+   <div class="row" id="wst"><label class="field"><span>Stock</span><input type="number" id="est" value="${p.stock||0}" ${id?'disabled':''}></label>
     <label class="field"><span>Seuil d\u2019alerte</span><input type="number" id="ese" value="${p.seuil||0}"></label></div>
-   ${id?'<p class="muted">Le stock se modifie depuis l\u2019onglet Stock (entr\u00e9e en stock ou inventaire), ce qui met aussi la date et le prix moyen \u00e0 jour.</p>':''}
+   ${id?'<p class="muted" id="wstm">Le stock se modifie depuis l\u2019onglet Stock (entr\u00e9e en stock ou inventaire), ce qui met aussi la date et le prix moyen \u00e0 jour.</p>':''}
    <div class="row">
      <label class="field"><span>Entr\u00e9e en stock</span>
        <span class="date-wrap" style="display:flex"><button class="btn ghost" tabindex="-1" type="button" style="width:100%;min-width:0">${dateCourt(p.dateEntree||today())}</button>
@@ -1823,7 +1903,9 @@ function editerProduit(id){
        <small class="muted" style="display:block;margin-top:3px;font-size:11px">vide = nom et marque servent de code</small></label></div>
    <div class="row"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="efa" ${p.favori?'checked':''} style="width:auto"> Favori en caisse</label>
    <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="eac" ${p.actif!==false?'checked':''} style="width:auto"> Actif</label></div>
-   ${id?`<div class="actions-fiche">
+   ${id&&estPack(p)?`<div class="actions-fiche">
+     <button class="btn ghost" onclick="fermer();etiquettesProduit('${id}',${Math.max(1,stockPack(p))})">\u{1F3F7} \u00c9tiquettes</button></div>`:''}
+   ${id&&!estPack(p)?`<div class="actions-fiche">
      <button class="btn ghost" onclick="fermer();mouvementStock('ENTREE',{cat:'${esc(p.cat||'').replace(/'/g,'')}',prod:'${id}'})">+ Entr\u00e9e en stock</button>
      <button class="btn ghost" onclick="fermer();mouvementStock('INVENTAIRE',{cat:'${esc(p.cat||'').replace(/'/g,'')}',prod:'${id}'})">Corriger le stock</button>
      <button class="btn ghost" onclick="fermer();etiquettesProduit('${id}',${Math.max(1,+p.stock||1)})">\u{1F3F7} \u00c9tiquettes</button></div>`:''}
@@ -1832,6 +1914,10 @@ function editerProduit(id){
     ${S.role==='admin'?`<button class="btn" onclick="sauverProduit('${id||''}')">Enregistrer</button>`:''}</div>`);
   if(S.role!=='admin')document.querySelectorAll('.modal input,.modal select').forEach(x=>x.disabled=true);
   ficheEnCours=id||null;
+  compoEdit=estPack(p)?p.pack.map(c=>({ref:c.ref,qte:+c.qte||1})):[];
+  compoPaAuto=!estPack(p);
+  const pa=$('#epa');if(pa)pa.addEventListener('input',()=>{compoPaAuto=false});
+  if(estPack(p)){basculerPack(true,'epa',['wst','wstm']);if(S.role!=='admin')document.querySelectorAll('.modal input,.modal select,.modal .compo-l button').forEach(x=>x.disabled=true)}
   majListeNoms();
 }
 let ficheEnCours=null,nouvelEtq=null;
@@ -1892,8 +1978,27 @@ async function sauverProduit(id){
     seuil:+$('#ese').value||0,codeBarre:$('#ecb').value.trim()||libelle,
     dateEntree:$('#ede').value||today(),
     favori:$('#efa').checked,actif:$('#eac').checked,maj:Date.now()};
+  const pk=!!($('#epk')&&$('#epk').checked);
+  if(pk){
+    const compo=lireCompo();
+    if(!compo.length)return toast('Choisis au moins un produit dans le pack','ko');
+    if(compo.length===1&&compo[0].qte<2)return toast('Un pack contient au moins 2 unit\u00e9s','ko');
+    d.pack=compo;d.seuil=0;
+  }else if(id&&estPack(prodParId(id)))d.pack=firebase.firestore.FieldValue.delete();
   try{
     if(id)await col('produits').doc(id).update(d);
+    else if(pk){
+      const nid=slug(libelle);
+      if(S.produits.find(p=>p.id===nid))return toast('Ce produit existe d\u00e9j\u00e0 \u2014 ouvre sa fiche','ko');
+      d.stock=0;
+      await col('produits').doc(nid).set(d);
+      if(!S.produits.find(p=>p.id===nid))S.produits.push(Object.assign({id:nid},d));
+      if(invEnCours()){
+        if(!inv.nouveaux.includes(nid))inv.nouveaux.push(nid);
+        invPousser({debut:inv.debut||Date.now(),nouveaux:FV().arrayUnion(nid)});
+      }
+      nouvelEtq={id:nid,qte:Math.max(1,stockPack(d))};
+    }
     else{
       const nid=slug(libelle);
       if(S.produits.find(p=>p.id===nid))return toast('Ce produit existe d\u00e9j\u00e0 \u2014 ouvre sa fiche','ko');
@@ -1911,6 +2016,18 @@ async function sauverProduit(id){
 }
 
 /* ---- Doublons ---- */
+/* apr\u00e8s une fusion, les packs qui contenaient une fiche absorb\u00e9e pointent vers la fiche conserv\u00e9e */
+function repointerPacks(b,anciens,nouveau){
+  let n=0;
+  S.produits.filter(estPack).forEach(p=>{
+    if(!p.pack.some(c=>anciens.includes(c.ref)))return;
+    const m={};p.pack.forEach(c=>{const r=anciens.includes(c.ref)?nouveau:c.ref;m[r]=(m[r]||0)+(+c.qte||1)});
+    const x=prodParId(nouveau);
+    const pack=Object.keys(m).map(ref=>({ref,qte:m[ref],nom:ref===nouveau&&x?nomComplet(x):((p.pack.find(c=>c.ref===ref)||{}).nom||'')}));
+    b.update(col('produits').doc(p.id),{pack});n++;
+  });
+  return n;
+}
 function cleNom(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim()}
 function cleProd(p){return cleNom(p.nom)+'|'+cleNom(p.marque||'')}
 function groupesDoublons(){
@@ -1941,6 +2058,7 @@ async function fusionner(cle,gardeId){
     const b=db.batch();
     b.update(col('produits').doc(gardeId),{stock,actif:true,maj:Date.now()});
     autres.forEach(p=>b.delete(col('produits').doc(p.id)));
+    repointerPacks(b,autres.map(p=>p.id),gardeId);
     autres.forEach(p=>b.set(col('mouvements').doc(),{ts:Date.now(),date:today(),ref:p.id,nom:p.nom,type:'FUSION',qte:-(+p.stock||0),vendeur:S.vendeur?S.vendeur.nom:'',com:'Fusionn\u00e9 vers '+garde.nom+' (fiche supprim\u00e9e)'}));
     await suivre(b.commit());
     fermer();toast('Fiches fusionn\u00e9es','ok');vueProduits();
@@ -1992,7 +2110,7 @@ function listeEtq(){
     .map(p=>`<div class="ligne ligne-etq"><label class="etq-nom">
       <input type="checkbox" class="ecb" value="${p.id}" style="width:auto"> <b>${esc(nomComplet(p))}</b></label>
       <span class="muted etq-prix">${eur(p.pv)}</span>
-      <input type="number" class="eqt" data-id="${p.id}" value="${Math.max(1,Math.round(+p.stock||0))}" min="1" style="width:66px"></div>`).join('');
+      <input type="number" class="eqt" data-id="${p.id}" value="${Math.max(1,Math.round(stockAff(p)))}" min="1" style="width:66px"></div>`).join('');
 }
 function imprimerEtiquettes(){
   const sel=[...document.querySelectorAll('.ecb:checked')].map(c=>c.value);
@@ -2015,9 +2133,9 @@ let stockOuvert={neg:false,appro:false,mvt:false};
 function vueStock(){
   const admin=S.role==='admin';
   const actifs=S.produits.filter(p=>p.actif!==false);
-  const alertes=actifs.filter(p=>+p.seuil>0&&(+p.stock||0)<=+p.seuil).sort((a,b)=>(+a.stock||0)-(+b.stock||0));
-  const valeur=S.produits.reduce((s,p)=>s+Math.max(0,+p.stock||0)*(+p.pa||0),0);
-  const negs=S.produits.filter(p=>(+p.stock||0)<0).sort((a,b)=>(+a.stock||0)-(+b.stock||0));
+  const alertes=actifs.filter(p=>!estPack(p)&&+p.seuil>0&&(+p.stock||0)<=+p.seuil).sort((a,b)=>(+a.stock||0)-(+b.stock||0));
+  const valeur=S.produits.reduce((s,p)=>s+(estPack(p)?0:Math.max(0,+p.stock||0)*(+p.pa||0)),0);
+  const negs=S.produits.filter(p=>!estPack(p)&&(+p.stock||0)<0).sort((a,b)=>(+a.stock||0)-(+b.stock||0));
   const dbl=groupesDoublons().length;
   const q=pq.trim().toLowerCase();
   const filtre=p=>!q||(p.nom+' '+(p.marque||'')+' '+(p.cat||'')).toLowerCase().includes(q);
@@ -2030,7 +2148,7 @@ function vueStock(){
      ${stockOuvert[cle]?`<div style="margin-top:12px">${corps()}</div>`:''}</div>`;
   const listeGroupes=()=>groupes.length?groupes.map(g=>{
       const ouvert=!!q||catsOuvertes.has(g.c);
-      const sansPrix=g.l.filter(p=>!p.pv).length,ng=g.l.filter(p=>(+p.stock||0)<0).length;
+      const sansPrix=g.l.filter(p=>!p.pv).length,ng=g.l.filter(p=>!estPack(p)&&(+p.stock||0)<0).length;
       const al=[sansPrix?sansPrix+' sans prix':'',ng?ng+' n\u00e9gatif'+(ng>1?'s':''):''].filter(Boolean).join(' \u00b7 ');
       return `<div class="grp-prod">
         <div class="grp-hd" onclick="basculerCatProduits('${esc(g.c).replace(/'/g,'')}')">
@@ -2132,7 +2250,7 @@ function mouvementStock(type,garde){
 }
 function majProduitsCat(){
   const c=($('#mcat')||{}).value||'',s=$('#mp');if(!s)return;
-  const l=S.produits.filter(p=>p.actif!==false&&(!c||p.cat===c)).sort((a,b)=>nomComplet(a).localeCompare(nomComplet(b),'fr'));
+  const l=S.produits.filter(p=>p.actif!==false&&!estPack(p)&&(!c||p.cat===c)).sort((a,b)=>nomComplet(a).localeCompare(nomComplet(b),'fr'));
   s.innerHTML='<option value="">\u2014 choisir \u2014</option>'+l.map(p=>`<option value="${p.id}">${esc(nomComplet(p))}</option>`).join('');
   const z=$('#minfo');
   if(z)z.innerHTML=c&&!l.length?`<div class="card" style="background:var(--or-pale);box-shadow:none;padding:10px 12px;margin-bottom:12px">
@@ -2248,7 +2366,7 @@ async function lancerImportStock(){
   if(!stockLu)return toast('Aucun fichier','ko');
   let n=0,b=db.batch(),c=0;
   for(const x of stockLu){
-    const p=S.produits.find(q=>q.nom.toLowerCase()===x.nom.toLowerCase());if(!p)continue;
+    const p=S.produits.find(q=>!estPack(q)&&q.nom.toLowerCase()===x.nom.toLowerCase());if(!p)continue;
     b.update(col('produits').doc(p.id),{stock:x.qte});
     b.set(col('mouvements').doc(),{ts:Date.now(),date:today(),ref:p.id,nom:nomComplet(p),type:'INVENTAIRE',qte:x.qte-(+p.stock||0),vendeur:S.vendeur.nom,com:'Import fichier'});
     n++;c+=2;if(c>=400){await suivre(b.commit());b=db.batch();c=0}
@@ -2321,7 +2439,7 @@ function invPlanifier(id){
     invPousser(v===undefined||v===''?{comptes:{[id]:FV().delete()}}:{debut:inv.debut||Date.now(),comptes:{[id]:v}});
   },500);
 }
-function invProduits(){return S.produits.filter(p=>p.actif!==false)}
+function invProduits(){return S.produits.filter(p=>p.actif!==false&&!estPack(p))}
 function invNbComptes(l){return (l||invProduits()).filter(p=>inv.comptes[p.id]!==undefined&&inv.comptes[p.id]!=='').length}
 function ouvrirInventaire(){
   if(invEnCours()){
@@ -2360,8 +2478,9 @@ function vueInventaire(){
   const q=invQ.trim().toLowerCase();
   const tous=invProduits();
   const filtre=p=>!q||(p.nom+' '+(p.marque||'')).toLowerCase().includes(q);
-  const groupes=categoriesProduits().map(c=>({c,tous:tous.filter(p=>(p.cat||'')===c)}))
-    .map(g=>({...g,l:g.tous.filter(filtre).sort((a,b)=>a.nom.localeCompare(b.nom,'fr')||(a.marque||'').localeCompare(b.marque||'','fr'))})).filter(g=>g.l.length);
+  const visibles=S.produits.filter(p=>p.actif!==false);
+  const groupes=categoriesProduits().map(c=>({c,tous:tous.filter(p=>(p.cat||'')===c),aff:visibles.filter(p=>(p.cat||'')===c)}))
+    .map(g=>({...g,l:g.aff.filter(filtre).sort((a,b)=>a.nom.localeCompare(b.nom,'fr')||(a.marque||'').localeCompare(b.marque||'','fr'))})).filter(g=>g.l.length);
   $('#vue').innerHTML=`<div class="page">
    <div class="card">
      <div class="repli-hd" style="cursor:default"><h3>Inventaire</h3>
@@ -2383,6 +2502,14 @@ function vueInventaire(){
            <span class="muted" id="invg-${slug(g.c||'x')}">${invNbComptes(g.tous)}/${g.tous.length}</span></div>
          ${ouvert?`<div>${g.l.map(p=>{
            const pr=inv.prix[p.id]||{},pa=pr.pa??p.pa??0,pv=pr.pv??p.pv??0,ro=invAdmin()?'':'readonly';
+           if(estPack(p))return `<div class="inv-row inv-pack">
+             <div class="info"><div class="nom">${esc(p.nom)}${p.marque?` <span class="mq-l">${esc(p.marque)}</span>`:''} <span class="pill pk">pack</span>${inv.nouveaux.includes(p.id)?' <span class="pill esp">nouveau</span>':''}</div>
+               <div class="det">${esc(libPack(p))}</div></div>
+             <div class="inv-champs">
+               <label class="inv-lb"><span>PA</span><input type="number" class="inv-px ${pr.pa!==undefined?'modif':''}" data-id="${p.id}" data-k="pa" step="0.5" value="${pa}" ${ro}></label>
+               <label class="inv-lb"><span>PV</span><input type="number" class="inv-px ${pr.pv!==undefined?'modif':''}" data-id="${p.id}" data-k="pv" step="0.5" value="${pv}" ${ro}></label>
+               <span class="inv-lb inv-via"><span>Compt\u00e9</span><span class="via">via ${p.pack.length>1?'ses produits':esc((prodParId(p.pack[0].ref)||{nom:'?'}).nom)}</span></span>
+               <span class="inv-ec"></span></div></div>`;
            return `<div class="inv-row">
              <div class="info"><div class="nom">${esc(p.nom)}${p.marque?` <span class="mq-l">${esc(p.marque)}</span>`:''}${inv.nouveaux.includes(p.id)?' <span class="pill esp">nouveau</span>':''}</div>
                <div class="det">th\u00e9orique ${nb(p.stock||0)}${(inv.auto||[]).includes(p.id)?' \u00b7 <span class="pill">quantit\u00e9 saisie en stock</span>':''}</div></div>
@@ -2433,10 +2560,15 @@ function ficheAbsent(nom){
    <label class="field hidden" id="wfam"><span>Nom de la nouvelle marque</span><input type="text" id="famn"></label>
    <div class="row"><label class="field"><span>Prix d\u2019achat</span><input type="number" id="fapa" step="0.5" value="0"></label>
      <label class="field"><span>Prix de vente</span><input type="number" id="fapv" step="0.5" value="0"></label></div>
-   <label class="field"><span>Quantit\u00e9 compt\u00e9e</span><input type="number" id="faq" inputmode="numeric" min="0" step="1" ${nom?'autofocus':''}></label>
-   <p class="muted">La fiche est cr\u00e9\u00e9e avec un stock \u00e0 0 ; la quantit\u00e9 compt\u00e9e sera enregistr\u00e9e \u00e0 la validation de l\u2019inventaire.</p>
+   <label class="pack-ck"><input type="checkbox" id="epk" onchange="basculerPack(this.checked,'fapa',['wfaq'])" style="width:auto">
+     <span><b>C\u2019est un pack</b> <span class="muted">\u2014 plusieurs produits vendus ensemble \u00e0 un prix</span></span></label>
+   <div id="wpack" class="hidden pack-zone"><p class="muted" style="margin:0 0 8px">Le pack ne se compte pas : ce sont ses produits qui sont compt\u00e9s.</p></div>
+   <div id="wfaq"><label class="field"><span>Quantit\u00e9 compt\u00e9e</span><input type="number" id="faq" inputmode="numeric" min="0" step="1" ${nom?'autofocus':''}></label>
+   <p class="muted">La fiche est cr\u00e9\u00e9e avec un stock \u00e0 0 ; la quantit\u00e9 compt\u00e9e sera enregistr\u00e9e \u00e0 la validation de l\u2019inventaire.</p></div>
    <div class="modal-ft"><button class="btn ghost" onclick="fermer()">Annuler</button>
      <button class="btn" onclick="creerAbsent()">Cr\u00e9er</button></div>`);
+  ficheEnCours=null;compoEdit=[];compoPaAuto=true;
+  const pa=$('#fapa');if(pa)pa.addEventListener('input',()=>{compoPaAuto=false});
 }
 async function creerAbsent(){
   const s=$('#fac').value,cat=s==='__new'?majuscule($('#facn').value||''):s;
@@ -2449,14 +2581,21 @@ async function creerAbsent(){
   if(ex)return toast('\u00ab '+nomComplet(ex)+' \u00bb existe d\u00e9j\u00e0 \u2014 cherche-le dans la liste','ko');
   const d={nom,cat,marque,famille:nom,type:'famille',pa:+$('#fapa').value||0,pv:+$('#fapv').value||0,
     stock:0,seuil:3,actif:true,favori:false,codeBarre:nom+(marque?' '+marque:''),dateEntree:today(),maj:Date.now(),origine:'inventaire'};
+  const pk=!!($('#epk')&&$('#epk').checked);
+  if(pk){
+    const compo=lireCompo();
+    if(!compo.length)return toast('Choisis au moins un produit dans le pack','ko');
+    if(compo.length===1&&compo[0].qte<2)return toast('Un pack contient au moins 2 unit\u00e9s','ko');
+    d.pack=compo;d.seuil=0;
+  }
   try{
     await col('produits').doc(id).set(d);
     if(!S.produits.find(p=>p.id===id))S.produits.push(Object.assign({id},d));
-    if(q!=='')inv.comptes[id]=Math.max(0,Math.round(+q));
+    if(q!==''&&!pk)inv.comptes[id]=Math.max(0,Math.round(+q));
     if(!inv.nouveaux.includes(id))inv.nouveaux.push(id);
     if(!inv.debut)inv.debut=Date.now();
     const env={debut:inv.debut,nouveaux:FV().arrayUnion(id)};
-    if(q!=='')env.comptes={[id]:inv.comptes[id]};
+    if(q!==''&&!pk)env.comptes={[id]:inv.comptes[id]};
     invPousser(env);invOuvertes.add(cat);invQ='';
     await ajouterMarqueListe(marque);
     fermer();toast(nomComplet(d)+' cr\u00e9\u00e9','ok');vueInventaire();
@@ -2885,6 +3024,7 @@ async function appliquerCorrectionsNoms(){
     }
     for(const g of P.fusions){
       lot.update(col('produits').doc(g.garde.id),{nom:g.nom,marque:g.marque||'',cat:g.cat,stock:g.stock,actif:true,maj:Date.now()});k++;
+      k+=repointerPacks(lot,g.autres.map(p=>p.id),g.garde.id);
       for(const p of g.autres){
         lot.delete(col('produits').doc(p.id));
         lot.set(col('mouvements').doc(),{ts:Date.now(),date:today(),ref:p.id,nom:nomComplet(p),type:'FUSION',
@@ -3415,7 +3555,7 @@ function confirmerSync(action){
   return confirm(enAttente+' op\u00e9ration(s) ne sont pas encore envoy\u00e9es au serveur.\n\nSi tu continues, elles resteront en attente sur cet appareil jusqu\u2019\u00e0 sa prochaine ouverture avec du r\u00e9seau.\n\nVoulez-vous quand m\u00eame '+action+' ?');
 }
 /* ============ VERSION ET MISE A JOUR ============ */
-const APP_VERSION='2.13.2';
+const APP_VERSION='2.14.0';
 let versionDispo=null;
 async function verifierVersion(silencieux){
   try{
