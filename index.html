@@ -546,9 +546,23 @@ tr.neg td{background:#FDECEA}
 .pack-ck{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;margin:2px 0 12px;border:1px dashed var(--or-clair);border-radius:12px;background:#FFFCF6;cursor:pointer}
 .pack-ck input{margin-top:3px}
 .pack-zone{padding:12px;margin:-4px 0 12px;border-radius:12px;background:var(--creme2)}
-.compo-l{display:flex;gap:8px;align-items:center;margin-bottom:8px}
-.compo-l select{flex:1;min-width:0}
-.compo-l input{width:70px!important;text-align:center;flex:0 0 70px}
+.compo-l{background:#fff;border:1px solid var(--gris-clair);border-radius:12px;padding:10px;margin-bottom:10px}
+.compo-rech{position:relative}
+.compo-rech input{width:100%}
+.compo-res{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+.compo-res:empty{display:none}
+.compo-opt{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 6px;width:100%;text-align:left;background:var(--creme2);border:1px solid transparent;border-radius:10px;padding:9px 11px;font:inherit;font-size:14px;color:var(--anthracite);cursor:pointer}
+.compo-opt:hover,.compo-opt:focus{border-color:var(--or-clair);background:var(--or-pale)}
+.compo-opt small,.compo-nom small{flex-basis:100%;font-size:11.5px;color:var(--gris)}
+.compo-vide{font-size:13px;color:var(--gris);padding:6px 2px}
+.compo-choix{display:flex;align-items:center;gap:8px}
+.compo-nom{flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:2px}
+.compo-nom b{font-size:15px}
+.compo-bas{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
+.compo-q{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--gris);font-weight:600}
+.compo-q input{width:74px!important;text-align:center}
+.compo-plus{width:100%}
+.pack-ck input[type=checkbox]{width:22px!important;height:22px;flex:0 0 22px;accent-color:var(--or-fonce)}
 .compo-info{font-size:12.5px;color:var(--gris);margin-top:10px;line-height:1.4}
 .inv-via .via{text-transform:none;letter-spacing:0;height:42px!important;display:flex;align-items:center;justify-content:center;width:78px;height:42px;font-size:11px;line-height:1.2;color:var(--gris);text-align:center;border:1px dashed var(--gris-clair);border-radius:10px;padding:2px 4px;overflow:hidden}
 
@@ -1000,23 +1014,39 @@ function mouvementsPack(l,signe,num,type,b){
 }
 /* \u00e9diteur de composition, partag\u00e9 par la fiche produit et l'inventaire */
 let compoEdit=[],compoPaAuto=true,compoPaId='';
-function optionsCompo(sel){
-  const exclus=ficheEnCours;
-  const l=S.produits.filter(p=>p.actif!==false&&!estPack(p)&&p.id!==exclus);
-  return '<option value="">\u2014 choisir \u2014</option>'+categoriesProduits().map(c=>{
-    const g=l.filter(p=>(p.cat||'')===c).sort((a,b)=>nomComplet(a).localeCompare(nomComplet(b),'fr'));
-    return g.length?`<optgroup label="${esc(c||'Sans cat\u00e9gorie')}">${g.map(p=>`<option value="${p.id}" ${p.id===sel?'selected':''}>${esc(nomComplet(p))}</option>`).join('')}</optgroup>`:'';
-  }).join('');
-}
+function normer(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')}
 function htmlCompo(){
-  return `<div id="zcompo">${compoEdit.map((c,i)=>`<div class="compo-l">
-      <select onchange="compoEdit[${i}].ref=this.value;majCompo()">${optionsCompo(c.ref)}</select>
-      <input type="number" min="1" step="1" inputmode="numeric" value="${c.qte}" oninput="compoEdit[${i}].qte=Math.max(1,Math.round(+this.value||1));majCompo(true)">
-      <button class="btn-icon" type="button" title="Retirer" onclick="compoEdit.splice(${i},1);if(!compoEdit.length)compoEdit.push({ref:'',qte:1});dessinerCompo()">\u2715</button></div>`).join('')}
-    <button class="btn ghost sm" type="button" onclick="compoEdit.push({ref:'',qte:1});dessinerCompo()">+ Ajouter un produit au pack</button>
+  return `<div id="zcompo">${compoEdit.map((c,i)=>{
+    const x=c.ref&&prodParId(c.ref);
+    return `<div class="compo-l">
+      ${x?`<div class="compo-choix"><span class="compo-nom"><b>${esc(nomComplet(x))}</b><small>${esc(x.cat||'')} · stock ${nb(x.stock||0)}</small></span>
+          <button type="button" class="btn ghost sm" onclick="compoEdit[${i}].ref='';dessinerCompo(${i})">Changer</button></div>`
+        :`<div class="compo-rech"><input type="text" enterkeyhint="search" id="cq-${i}" placeholder="Rechercher un produit…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+            oninput="chercherCompo(${i},this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();const b=document.querySelector('#cr-${i} .compo-opt');if(b)b.click()}">
+          <div class="compo-res" id="cr-${i}"></div></div>`}
+      <div class="compo-bas"><label class="compo-q"><span>Quantité</span>
+          <input type="number" min="1" step="1" inputmode="numeric" value="${c.qte}" oninput="compoEdit[${i}].qte=Math.max(1,Math.round(+this.value||1));majCompo(true)"></label>
+        <button class="btn ghost sm" type="button" onclick="compoEdit.splice(${i},1);if(!compoEdit.length)compoEdit.push({ref:'',qte:1});dessinerCompo()">Retirer</button></div></div>`}).join('')}
+    <button class="btn ghost sm compo-plus" type="button" onclick="compoEdit.push({ref:'',qte:1});dessinerCompo(compoEdit.length-1)">+ Ajouter un produit au pack</button>
     <div id="compoinfo" class="compo-info"></div></div>`;
 }
-function dessinerCompo(){const z=$('#zcompo');if(z)z.outerHTML=htmlCompo();else{const w=$('#wpack');if(w)w.insertAdjacentHTML('beforeend',htmlCompo())}majCompo()}
+/* recherche d'un produit du pack : 2 lettres minimum, sans accents ni majuscules, plusieurs mots possibles */
+function chercherCompo(i,v){
+  const z=$('#cr-'+i);if(!z)return;
+  const q=normer(v).trim();
+  if(q.length<2){z.innerHTML='';return}
+  const mots=q.split(/\s+/);
+  const l=S.produits.filter(p=>p.actif!==false&&!estPack(p)&&p.id!==ficheEnCours
+      &&mots.every(m=>normer(p.nom+' '+(p.marque||'')+' '+(p.cat||'')).includes(m)))
+    .sort((a,b)=>(normer(b.nom).startsWith(mots[0])-normer(a.nom).startsWith(mots[0]))||nomComplet(a).localeCompare(nomComplet(b),'fr'))
+    .slice(0,8);
+  z.innerHTML=l.length?l.map(p=>`<button type="button" class="compo-opt" onclick="choisirCompo(${i},'${p.id}')">
+      <b>${esc(p.nom)}</b>${p.marque?` <span class="mq-l">${esc(p.marque)}</span>`:''}<small>${esc(p.cat||'')} · stock ${nb(p.stock||0)}</small></button>`).join('')
+    :'<div class="compo-vide">Aucun produit trouvé</div>';
+}
+function choisirCompo(i,id){compoEdit[i].ref=id;dessinerCompo()}
+function dessinerCompo(focus){const z=$('#zcompo');if(z)z.outerHTML=htmlCompo();else{const w=$('#wpack');if(w)w.insertAdjacentHTML('beforeend',htmlCompo())}majCompo();
+  if(focus!==undefined){const s=document.getElementById('cq-'+focus);if(s)setTimeout(()=>s.focus(),30)}}
 function majCompo(frappe){
   const z=$('#compoinfo');if(!z)return;
   const ok=compoEdit.filter(c=>c.ref);
@@ -3555,7 +3585,7 @@ function confirmerSync(action){
   return confirm(enAttente+' op\u00e9ration(s) ne sont pas encore envoy\u00e9es au serveur.\n\nSi tu continues, elles resteront en attente sur cet appareil jusqu\u2019\u00e0 sa prochaine ouverture avec du r\u00e9seau.\n\nVoulez-vous quand m\u00eame '+action+' ?');
 }
 /* ============ VERSION ET MISE A JOUR ============ */
-const APP_VERSION='2.14.0';
+const APP_VERSION='2.14.1';
 let versionDispo=null;
 async function verifierVersion(silencieux){
   try{
