@@ -540,6 +540,8 @@ tr.neg td{background:#FDECEA}
 .tk-actions .btn{flex:1 1 0;min-width:88px;padding-left:6px!important;padding-right:6px!important;white-space:nowrap}
 @media (max-width:480px){.tk-actions .btn{font-size:15px}}
 
+/* ---------- v2.14.2 : bouton Nouveau pack (4 actions en 2x2) ---------- */
+@media(max-width:620px){.actions-stock.a4 .btn:first-child{grid-column:auto}}
 /* ---------- v2.14 : packs ---------- */
 .pill.pk{background:#F3ECDD;color:var(--or-fonce)}
 .pastille-prod .s .pk{display:inline-block;padding:0 6px;border-radius:999px;background:#F3ECDD;color:var(--or-fonce);font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.03em}
@@ -1898,11 +1900,13 @@ async function reactiverProduit(id){
 function basculerFavori(id){const p=S.produits.find(x=>x.id===id);col('produits').doc(id).update({favori:!p.favori})}
 
 /* ---- Fiche produit : cat\u00e9gorie d'abord, nom qui pr\u00e9-remplit ---- */
-function editerProduit(id){
+function nouveauPack(){editerProduit(null,{pack:true})}
+function editerProduit(id,opts){
+  const modePack=!id&&!!(opts&&opts.pack);
   const p=id?S.produits.find(x=>x.id===id):{nom:'',cat:'',marque:'',pa:0,pv:0,stock:0,seuil:3,actif:true,favori:false,dateEntree:today()};
   const cats=ordreCats().concat([...new Set(S.produits.map(x=>x.cat).filter(Boolean))]).filter((v,i,a)=>a.indexOf(v)===i);
   const mqs=listeMarques();if(p.marque&&!mqs.includes(p.marque))mqs.push(p.marque);
-  modale(`<h2>${id?'Modifier':'Nouveau produit'}</h2>
+  modale(`<h2>${id?'Modifier':(modePack?'Nouveau pack':'Nouveau produit')}</h2>
    <label class="field"><span>1. Cat\u00e9gorie</span>
      <select id="ec" onchange="changerCat()">${['',...cats].map(c=>`<option value="${esc(c)}" ${p.cat===c?'selected':''}>${c?esc(c):'\u2014 choisir \u2014'}</option>`).join('')}
        <option value="__new">+ Nouvelle cat\u00e9gorie\u2026</option></select></label>
@@ -1918,7 +1922,7 @@ function editerProduit(id){
    <div id="alertedbl"></div>
    <div class="row"><label class="field"><span>Prix d\u2019achat</span><input type="number" id="epa" step="0.5" value="${p.pa||0}"></label>
     <label class="field"><span>Prix de vente</span><input type="number" id="epv" step="0.5" value="${p.pv||0}"></label></div>
-   ${S.role==='admin'&&(!id||estPack(p)||!(+p.stock))?`<label class="pack-ck"><input type="checkbox" id="epk" ${estPack(p)?'checked':''} onchange="basculerPack(this.checked,'epa',['wst','wstm'])" style="width:auto">
+   ${S.role==='admin'&&(!id||estPack(p)||!(+p.stock))?`<label class="pack-ck"><input type="checkbox" id="epk" ${estPack(p)||modePack?'checked':''} onchange="basculerPack(this.checked,'epa',['wst','wstm'])" style="width:auto">
      <span><b>C\u2019est un pack</b> <span class="muted">\u2014 plusieurs produits vendus ensemble \u00e0 un prix</span></span></label>`
 :''}
    <div id="wpack" class="hidden pack-zone"><p class="muted" style="margin:0 0 8px">Vendre un pack retire ses produits du stock. Le pack n\u2019a pas de stock \u00e0 lui.</p></div>
@@ -1947,6 +1951,7 @@ function editerProduit(id){
   compoEdit=estPack(p)?p.pack.map(c=>({ref:c.ref,qte:+c.qte||1})):[];
   compoPaAuto=!estPack(p);
   const pa=$('#epa');if(pa)pa.addEventListener('input',()=>{compoPaAuto=false});
+  if(modePack)basculerPack(true,'epa',['wst','wstm']);
   if(estPack(p)){basculerPack(true,'epa',['wst','wstm']);if(S.role!=='admin')document.querySelectorAll('.modal input,.modal select,.modal .compo-l button').forEach(x=>x.disabled=true)}
   majListeNoms();
 }
@@ -2195,8 +2200,9 @@ function vueStock(){
      <div class="kpi"><div class="l">Sous le seuil</div><div class="v" style="color:${alertes.length?'var(--rouge)':'var(--vert)'}">${alertes.length}</div></div>
      <div class="kpi"><div class="l">R\u00e9f\u00e9rences</div><div class="v">${actifs.length}</div></div></div>
    <div class="card">
-     <div class="actions-stock">
+     <div class="actions-stock${admin?' a4':''}">
        <button class="btn" onclick="mouvementStock('ENTREE')">+ Entr\u00e9e en stock</button>
+       ${admin?'<button class="btn ghost" onclick="nouveauPack()">\u{1F4E6} Nouveau pack</button>':''}
        <button class="btn ghost" onclick="ouvrirInventaire()">\u{1F4CB} Inventaire</button>
        <button class="btn ghost" onclick="ouvrirEtiquettes()">\u{1F3F7} \u00c9tiquettes</button></div>
    </div>
@@ -3585,7 +3591,7 @@ function confirmerSync(action){
   return confirm(enAttente+' op\u00e9ration(s) ne sont pas encore envoy\u00e9es au serveur.\n\nSi tu continues, elles resteront en attente sur cet appareil jusqu\u2019\u00e0 sa prochaine ouverture avec du r\u00e9seau.\n\nVoulez-vous quand m\u00eame '+action+' ?');
 }
 /* ============ VERSION ET MISE A JOUR ============ */
-const APP_VERSION='2.14.1';
+const APP_VERSION='2.14.2';
 let versionDispo=null;
 async function verifierVersion(silencieux){
   try{
