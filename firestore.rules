@@ -4,18 +4,21 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     function connecte()  { return request.auth != null; }
-    function compte()    { return get(/databases/$(database)/documents/boutiques/$(b)/comptes/$(request.auth.uid)).data; }
-    function estAdmin()  { return connecte() && compte().role == 'admin'; }
     function champs(l)   { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(l); }
 
     match /boutiques/{b} {
+      // Déclarées ici (et non plus haut) pour avoir accès à {b} : sinon estAdmin() est toujours faux
+      function compte()    { return get(/databases/$(database)/documents/boutiques/$(b)/comptes/$(request.auth.uid)).data; }
+      function estAdmin()  { return connecte() && compte().role == 'admin'; }
+
       allow read: if connecte();
       allow write: if estAdmin();
 
-      // Rôle de l'appareil : créé une seule fois à la première connexion, jamais modifiable ensuite
+      // Rôle de l'appareil : créé une seule fois à la première connexion, toujours en « caisse ».
+      // Seul un admin (ou la console Firebase) peut ensuite le passer en « admin ».
       match /comptes/{uid} {
         allow read:   if connecte();
-        allow create: if connecte() && request.auth.uid == uid;
+        allow create: if connecte() && request.auth.uid == uid && request.resource.data.role == 'caisse';
         allow update, delete: if estAdmin();
       }
 
@@ -60,6 +63,21 @@ service cloud.firestore {
       match /parametres/{id} {
         allow read:  if connecte();
         allow write: if estAdmin();
+      }
+
+      // Photos produits : lecture pour tous les appareils, ajout / changement / retrait par l'admin.
+      // Tailles plafonnées (images réduites par l'app avant envoi).
+      match /photos/{id} {
+        allow read:   if connecte();
+        allow create, update: if estAdmin() && request.resource.data.img is string
+                              && request.resource.data.img.size() < 250000;
+        allow delete: if estAdmin();
+      }
+      match /vignettes/{id} {
+        allow read:   if connecte();
+        allow create, update: if estAdmin() && request.resource.data.v is string
+                              && request.resource.data.v.size() < 30000;
+        allow delete: if estAdmin();
       }
 
       match /imports/{id} {
