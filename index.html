@@ -84,7 +84,7 @@ nav.bottom button.on svg{stroke:var(--or-fonce)}
 .pastille-prod .s{font-size:11px;color:var(--gris)}
 .pastille-prod .s.bas{color:var(--rouge);font-weight:700}
 .pastille-prod.rupture{opacity:.55}
-/* ---------- PHOTOS PRODUITS ---------- */
+/* ---------- v2.15 : photos produits ---------- */
 .pastille-prod .fav{z-index:1;text-shadow:0 0 3px #fff,0 0 6px #fff}
 .pastille-prod .vign{width:100%;height:78px;object-fit:cover;border-radius:8px;background:var(--or-pale);display:block}
 .photo-fiche{display:flex;gap:12px;align-items:center;margin-bottom:14px}
@@ -3721,7 +3721,7 @@ function confirmerSync(action){
   return confirm(enAttente+' op\u00e9ration(s) ne sont pas encore envoy\u00e9es au serveur.\n\nSi tu continues, elles resteront en attente sur cet appareil jusqu\u2019\u00e0 sa prochaine ouverture avec du r\u00e9seau.\n\nVoulez-vous quand m\u00eame '+action+' ?');
 }
 /* ============ VERSION ET MISE A JOUR ============ */
-const APP_VERSION='2.14.2';
+const APP_VERSION='2.15.0';
 let versionDispo=null;
 async function verifierVersion(silencieux){
   try{
