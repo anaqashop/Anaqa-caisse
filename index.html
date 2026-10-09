@@ -84,6 +84,17 @@ nav.bottom button.on svg{stroke:var(--or-fonce)}
 .pastille-prod .s{font-size:11px;color:var(--gris)}
 .pastille-prod .s.bas{color:var(--rouge);font-weight:700}
 .pastille-prod.rupture{opacity:.55}
+/* ---------- PHOTOS PRODUITS ---------- */
+.pastille-prod .fav{z-index:1;text-shadow:0 0 3px #fff,0 0 6px #fff}
+.pastille-prod .vign{width:100%;height:78px;object-fit:cover;border-radius:8px;background:var(--or-pale);display:block}
+.photo-fiche{display:flex;gap:12px;align-items:center;margin-bottom:14px}
+.photo-cadre{width:96px;height:96px;flex:none;border-radius:12px;background:var(--or-pale);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:zoom-in;text-align:center}
+.photo-cadre img{width:100%;height:100%;object-fit:cover}
+.photo-cadre .muted{font-size:11px;padding:6px;cursor:default}
+.photo-btns{display:flex;flex-direction:column;gap:8px;flex:1;min-width:0}
+.photo-btns input[type=file]{display:none}
+.photo-zoom{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:16px;cursor:zoom-out}
+.photo-zoom img{max-width:100%;max-height:100%;border-radius:10px}
 
 .panier{background:#fff;border-radius:var(--r);box-shadow:var(--ombre);display:flex;flex-direction:column;position:sticky;top:14px;max-height:calc(100vh - 150px)}
 .panier .hd{padding:13px 15px;border-bottom:1px solid var(--gris-clair);display:flex;align-items:center;gap:8px}
@@ -629,7 +640,7 @@ const CFG_DEFAUT={
 
 /* ============ ETAT ============ */
 const S={cfg:null,bid:BID_DEF,user:null,role:null,vendeur:null,droits:{},produits:[],users:[],params:{},
- panier:[],remiseTicket:0,page:'caisse',cat:'',q:'',ventesCache:null};
+ panier:[],remiseTicket:0,page:'caisse',cat:'',q:'',ventesCache:null,vignettes:{}};
 let db=null,auth=null,unsub=[];
 
 /* ============ DEMARRAGE ============ */
@@ -659,10 +670,10 @@ async function chargerRole(){
   const ref=col('comptes').doc(S.user.uid);
   const d=await ref.get();
   if(d.exists){S.role=d.data().role||'caisse';return}
-  const tous=await col('comptes').limit(1).get();
-  const premier=tous.empty;
-  await ref.set({email:S.user.email,role:premier?'admin':'caisse',cree:new Date().toISOString()});
-  S.role=premier?'admin':'caisse';
+  // Tout nouvel appareil est cr\u00e9\u00e9 en caisse (impos\u00e9 par les r\u00e8gles Firestore).
+  // Le r\u00f4le admin se donne \u00e0 la main dans la console Firebase, ou par un admin.
+  await ref.set({email:S.user.email,role:'caisse',cree:new Date().toISOString()});
+  S.role='caisse';
 }
 
 function ecoutes(){
@@ -677,6 +688,10 @@ function ecoutes(){
     if(!S.users.length&&S.role==='admin')await semerUtilisateurs();
     if(S.vendeur)rendre();else demarrerApp();
   },e=>toast('Lecture utilisateurs : '+e.code,'ko')));
+  unsub.push(col('vignettes').onSnapshot(s=>{
+    S.vignettes={};s.docs.forEach(d=>{const v=d.data().v;if(v)S.vignettes[d.id]=v});
+    if(S.vendeur&&S.page==='caisse'&&document.getElementById('grille'))dessinerGrille();
+  },e=>{}));
   unsub.push(invDoc().onSnapshot(d=>{
     invRecevoir(d.exists?d.data():null);
   },e=>{}));
@@ -805,7 +820,12 @@ function demarrerApp(){
   if(!S.vendeur){
     const us=vendeursActifs();
     if(!us.length){APP().innerHTML=`<div class="pinwrap"><div class="marque">ANAQA SHOP</div>
-      <div class="sous">Mode Orientale</div><p class="muted">Initialisation en cours\u2026</p></div>`;return}
+      <div class="sous">Mode Orientale</div>${S.role==='admin'?'<p class="muted">Initialisation en cours\u2026</p>'
+      :`<div class="card" style="max-width:480px;text-align:left"><h3>Boutique pas encore configur\u00e9e</h3>
+      <p class="muted">Cet appareil n\u2019est pas administrateur. Dans la console Firebase, onglet <b>Firestore \u2192 Donn\u00e9es</b>, ouvre
+      <b>boutiques / ${esc(S.bid)} / comptes / ${esc(S.user.uid)}</b> et remplace <b>role</b> par <b>admin</b>. Recharge ensuite cette page.</p>
+      <div class="row" style="margin-top:12px"><button class="btn" onclick="location.reload()">Recharger</button>
+      <button class="btn ghost" onclick="auth.signOut()">Se d\u00e9connecter</button></div></div>`}</div>`;return}
     S.vendeur=us[0];localStorage.setItem('ANAQA_VENDEUR',us[0].id);
   }
   rendre();
@@ -1165,6 +1185,7 @@ function dessinerGrille(){
     const pk=estPack(p),st=stockAff(p),seuil=+p.seuil||0,bas=!pk&&seuil>0&&st<=seuil;
     return `<button class="pastille-prod ${st<=0&&!fav?'rupture':''} ${fav?'mode-fav':''}" onclick="${fav?`epingler('${p.id}')`:`ajouter('${p.id}')`}">
       <span class="fav ${p.favori?'on':''}" onclick="event.stopPropagation();basculerFavori('${p.id}')">${p.favori?'\u2605':'\u2606'}</span>
+      ${S.vignettes[p.id]?`<img class="vign" src="${S.vignettes[p.id]}" alt="" loading="lazy">`:''}
       <span class="n">${esc(p.nom)}</span>${p.marque?`<span class="mq">${esc(p.marque)}</span>`:''}
       ${fav?`<span class="s">${p.favori?'d\u00e9j\u00e0 favori':esc(p.cat||'')}</span><span class="epingle">${p.favori?'\u2605 \u00e9ping\u00e9':'+ Favoris'}</span>`
            :`<span class="s ${bas?'bas':''}">${pk?'<span class="pk">pack</span> ':''}${st<=0?'rupture':(pk?nb(st)+' dispo':'stock '+nb(st))}</span><span class="p">${eur(p.pv)}</span>`}
@@ -1904,7 +1925,10 @@ function editerProduit(id){
   const p=id?S.produits.find(x=>x.id===id):{nom:'',cat:'',marque:'',pa:0,pv:0,stock:0,seuil:3,actif:true,favori:false,dateEntree:today()};
   const cats=ordreCats().concat([...new Set(S.produits.map(x=>x.cat).filter(Boolean))]).filter((v,i,a)=>a.indexOf(v)===i);
   const mqs=listeMarques();if(p.marque&&!mqs.includes(p.marque))mqs.push(p.marque);
+  photoEdit=null;
+  const vign=id?S.vignettes[id]:null;
   modale(`<h2>${id?'Modifier':'Nouveau produit'}</h2>
+   ${htmlPhotoFiche(vign)}
    <label class="field"><span>1. Cat\u00e9gorie</span>
      <select id="ec" onchange="changerCat()">${['',...cats].map(c=>`<option value="${esc(c)}" ${p.cat===c?'selected':''}>${c?esc(c):'\u2014 choisir \u2014'}</option>`).join('')}
        <option value="__new">+ Nouvelle cat\u00e9gorie\u2026</option></select></label>
@@ -1952,8 +1976,71 @@ function editerProduit(id){
   const pa=$('#epa');if(pa)pa.addEventListener('input',()=>{compoPaAuto=false});
   if(estPack(p)){basculerPack(true,'epa',['wst','wstm']);if(S.role!=='admin')document.querySelectorAll('.modal input,.modal select,.modal .compo-l button').forEach(x=>x.disabled=true)}
   majListeNoms();
+  if(vign)chargerPhoto(id);
 }
 let ficheEnCours=null,nouvelEtq=null;
+
+/* ---- Photo produit : grande photo (collection photos, lue \u00e0 l'ouverture de la fiche)
+   et vignette (collection vignettes, \u00e9cout\u00e9e en continu pour la grille de caisse).
+   Les deux sont r\u00e9duites dans le navigateur puis stock\u00e9es en JPEG dans Firestore. ---- */
+let photoEdit=null;const photosCache={};
+function htmlPhotoFiche(src){
+  const admin=S.role==='admin';
+  if(!src&&!admin)return '';
+  return `<div class="photo-fiche">
+    <div class="photo-cadre" id="phcadre" onclick="voirPhoto()">${src?`<img id="phimg" src="${src}" alt="">`:'<span class="muted">Pas de photo</span>'}</div>
+    ${admin?`<div class="photo-btns">
+      <label class="btn ghost sm" id="phlab">\u{1F4F7} ${src?'Changer la photo':'Ajouter une photo'}<input type="file" accept="image/*" onchange="choisirPhoto(this)"></label>
+      <button class="btn ghost sm ${src?'':'hidden'}" id="phsup" type="button" onclick="retirerPhoto()">Retirer la photo</button></div>`:''}
+  </div>`;
+}
+function afficherPhotoFiche(src){
+  const c=$('#phcadre');if(!c)return;
+  c.innerHTML=src?`<img id="phimg" src="${src}" alt="">`:'<span class="muted">Pas de photo</span>';
+  const l=$('#phlab');if(l)l.firstChild.textContent='\u{1F4F7} '+(src?'Changer la photo':'Ajouter une photo');
+  const b=$('#phsup');if(b)b.classList.toggle('hidden',!src);
+}
+async function chargerPhoto(id){
+  try{
+    if(!photosCache[id]){const d=await col('photos').doc(id).get();if(d.exists&&d.data().img)photosCache[id]=d.data().img}
+    if(photosCache[id]&&ficheEnCours===id&&!photoEdit)afficherPhotoFiche(photosCache[id]);
+  }catch(e){}
+}
+function voirPhoto(){
+  const i=$('#phimg');if(!i)return;
+  const z=document.createElement('div');z.className='photo-zoom';z.onclick=()=>z.remove();
+  z.innerHTML=`<img src="${i.src}" alt="">`;document.body.appendChild(z);
+}
+function reduireImage(im,cote,limite){
+  const cv=document.createElement('canvas'),x=cv.getContext('2d');
+  let r=Math.min(1,cote/Math.max(im.naturalWidth,im.naturalHeight)),u='';
+  for(let essai=0;essai<6;essai++){
+    cv.width=Math.max(1,Math.round(im.naturalWidth*r));cv.height=Math.max(1,Math.round(im.naturalHeight*r));
+    x.fillStyle='#fff';x.fillRect(0,0,cv.width,cv.height);x.drawImage(im,0,0,cv.width,cv.height);
+    for(let q=.82;q>=.5;q-=.08){u=cv.toDataURL('image/jpeg',q);if(u.length<=limite)return u}
+    r*=.8;
+  }
+  return u.length<=limite?u:null;
+}
+async function choisirPhoto(inp){
+  const f=inp.files&&inp.files[0];inp.value='';if(!f)return;
+  const url=URL.createObjectURL(f);
+  try{
+    const im=new Image();im.src=url;await im.decode();
+    const img=reduireImage(im,900,180000),v=reduireImage(im,220,20000);
+    if(!img||!v)return toast('Photo trop lourde','ko');
+    photoEdit={img,v};afficherPhotoFiche(img);
+  }catch(e){toast('Image illisible \u2014 essaie en JPEG ou PNG','ko')}
+  finally{URL.revokeObjectURL(url)}
+}
+function retirerPhoto(){photoEdit='suppr';afficherPhotoFiche(null)}
+function enregistrerPhoto(pid){
+  if(!photoEdit||!pid)return;
+  const b=db.batch(),e=photoEdit;photoEdit=null;
+  if(e==='suppr'){b.delete(col('photos').doc(pid));b.delete(col('vignettes').doc(pid));delete photosCache[pid]}
+  else{const maj=Date.now();b.set(col('photos').doc(pid),{img:e.img,maj});b.set(col('vignettes').doc(pid),{v:e.v,maj});photosCache[pid]=e.img}
+  suivre(b.commit()).catch(x=>toast('Photo non enregistr\u00e9e : '+(x.code||x.message),'ko'));
+}
 function changerCat(){
   const s=$('#ec'),w=$('#wnc');
   if(s.value==='__new'){w.classList.remove('hidden');const i=$('#enc');if(i)i.focus()}
@@ -2018,10 +2105,11 @@ async function sauverProduit(id){
     if(compo.length===1&&compo[0].qte<2)return toast('Un pack contient au moins 2 unit\u00e9s','ko');
     d.pack=compo;d.seuil=0;
   }else if(id&&estPack(prodParId(id)))d.pack=firebase.firestore.FieldValue.delete();
+  let pid=id;
   try{
     if(id)await col('produits').doc(id).update(d);
     else if(pk){
-      const nid=slug(libelle);
+      const nid=slug(libelle);pid=nid;
       if(S.produits.find(p=>p.id===nid))return toast('Ce produit existe d\u00e9j\u00e0 \u2014 ouvre sa fiche','ko');
       d.stock=0;
       await col('produits').doc(nid).set(d);
@@ -2033,7 +2121,7 @@ async function sauverProduit(id){
       nouvelEtq={id:nid,qte:Math.max(1,stockPack(d))};
     }
     else{
-      const nid=slug(libelle);
+      const nid=slug(libelle);pid=nid;
       if(S.produits.find(p=>p.id===nid))return toast('Ce produit existe d\u00e9j\u00e0 \u2014 ouvre sa fiche','ko');
       d.stock=+$('#est').value||0;
       await col('produits').doc(nid).set(d);
@@ -2042,6 +2130,7 @@ async function sauverProduit(id){
       nouvelEtq={id:nid,qte:d.stock};
       if(invReporter(nid,d.stock,false))toast('Quantit\u00e9 report\u00e9e dans l\u2019inventaire','ok');
     }
+    enregistrerPhoto(pid);
     await ajouterMarqueListe(marque);
     fermer();toast('Produit enregistr\u00e9','ok');
     if(nouvelEtq){const e=nouvelEtq;nouvelEtq=null;proposerEtiquettes(e.id,e.qte)}
@@ -2080,6 +2169,7 @@ async function confirmerSuppression(id){
   try{
     const b=db.batch();
     b.delete(col('produits').doc(id));
+    if(S.vignettes[id]){b.delete(col('photos').doc(id));b.delete(col('vignettes').doc(id));delete photosCache[id]}
     b.set(col('mouvements').doc(),{ts:Date.now(),date:today(),ref:id,nom:nomComplet(p),type:'SUPPRESSION',qte:0,
       vendeur:S.vendeur?S.vendeur.nom:'',com:'Fiche supprim\u00e9e'});
     await suivre(b.commit());
