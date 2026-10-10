@@ -353,6 +353,8 @@ tr.neg td{background:#FDECEA}
 /* ---------- v1.9.7 : produits par catégorie repliable ---------- */
 .replis-outils{display:flex;gap:8px;margin-bottom:10px}
 .grp-prod{border:1px solid var(--gris-clair);border-radius:12px;margin-bottom:8px;overflow:hidden;background:#fff}
+/* v2.16 : grille de la caisse, seules les tuiles visibles à l'écran sont calculées */
+.pastille-prod{content-visibility:auto;contain-intrinsic-size:auto 150px}
 .grp-hd{display:flex;align-items:center;gap:8px;padding:11px 13px;cursor:pointer;user-select:none;flex-wrap:wrap}
 .grp-hd:active{background:var(--creme2)}
 .grp-fl{color:var(--or-fonce);font-size:12px;width:14px}
@@ -594,8 +596,6 @@ tr.neg td{background:#FDECEA}
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-auth-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 const CATALOGUE_INIT=[{"nom": "3guel", "cat": "Accessoires", "famille": "3guel", "type": "famille", "pa": 0.0, "pv": 0.0}, {"nom": "Adam clock", "cat": "Accessoires", "famille": "Adam clock", "type": "famille", "pa": 15.0, "pv": 30.0}, {"nom": "Babouche", "cat": "Accessoires", "famille": "Babouche", "type": "famille", "pa": 9.0, "pv": 25.0}, {"nom": "Bague", "cat": "Accessoires", "famille": "Bague", "type": "famille", "pa": 5.0, "pv": 15.0}, {"nom": "Bandeau", "cat": "Accessoires", "famille": "Bandeau", "type": "famille", "pa": 1.0, "pv": 3.0}, {"nom": "Boite de siwak", "cat": "Accessoires", "famille": "Boite de siwak", "type": "famille", "pa": 5.0, "pv": 15.0}, {"nom": "Boite siwak", "cat": "Accessoires", "famille": "Boite siwak", "type": "famille", "pa": 5.0, "pv": 15.0}, {"nom": "Bonnet", "cat": "Accessoires", "famille": "Bonnet", "type": "famille", "pa": 1.0, "pv": 3.0}, {"nom": "Bouton de manchette", "cat": "Accessoires", "famille": "Bouton de manchette", "type": "famille", "pa": 6.0, "pv": 12.0}, {"nom": "Boîte cadeau", "cat": "Accessoires", "famille": "Boîte cadeau", "type": "famille", "pa": 2.0, "pv": 5.0}, {"nom": "Cape caftan", "cat": "Accessoires", "famille": "Cape caftan", "type": "famille", "pa": 40.0, "pv": 40.0}, {"nom": "Ceinture ihram", "cat": "Accessoires", "famille": "Ceinture ihram", "type": "famille", "pa": 4.5, "pv": 10.0}, {"nom": "Chechya", "cat": "Accessoires", "famille": "Chechya", "type": "famille", "pa": 3.5, "pv": 7.5}, {"nom": "Chechya turque", "cat": "Accessoires", "famille": "Chechya turque", "type": "famille", "pa": 2.2, "pv": 5.0}, {"nom": "Coffret", "cat": "Accessoires", "famille": "Coffret", "type": "famille", "pa": 0.0, "pv": 0.0}, {"nom": "Coffret bb", "cat": "Accessoires", "famille": "Coffret bb", "type": "famille", "pa": 19.0, "pv": 39.0}, {"nom": "Coffret blueberry", "cat": "Accessoires", "famille": "Coffret blueberry", "type": "famille", "pa": 19.0, "pv": 39.0}, {"nom": "Echarpe palestine", "cat": "Accessoires", "famille": "Echarpe palestine", "type": "famille", "pa": 3.0, "pv": 6.0}, {"nom": "Foulard", "cat": "Accessoires", "famille": "Foulard", "type": "famille", "pa": 4.5, "pv": 10.0}, {"nom": "Gant", "cat": "Accessoires", "famille": "Gant", "type": "famille", "pa": 1.0, "pv": 3.0}, {"nom": "Hijab", "cat": "Accessoires", "famille": "Hijab", "type": "famille", "pa": 4.5, "pv": 10.0}, {"nom": "Hijima", "cat": "Accessoires", "famille": "Hijima", "type": "famille", "pa": 5.5, "pv": 10.0}, {"nom": "Mou3lam", "cat": "Accessoires", "famille": "Mou3lam", "type": "famille", "pa": 8.0, "pv": 16.0}, {"nom": "Pc grand", "cat": "Accessoires", "famille": "Pc grand", "type": "famille", "pa": 22.5, "pv": 49.0}, {"nom": "Pc moyen", "cat": "Accessoires", "famille": "Pc moyen", "type": "famille", "pa": 5.0, "pv": 12.5}, {"nom": "Pc petit", "cat": "Accessoires", "famille": "Pc petit", "type": "famille", "pa": 6.0, "pv": 15.0}, {"nom": "Peluche hamza", "cat": "Accessoires", "famille": "Peluche hamza", "type": "famille", "pa": 17.5, "pv": 30.0}, {"nom": "Porte coran", "cat": "Accessoires", "famille": "Porte coran", "type": "famille", "pa": 22.5, "pv": 49.0}, {"nom": "Porte coran grand", "cat": "Accessoires", "famille": "Porte coran grand", "type": "famille", "pa": 22.5, "pv": 49.0}, {"nom": "Porte coran moyen", "cat": "Accessoires", "famille": "Porte coran moyen", "type": "famille", "pa": 5.0, "pv": 12.5}, {"nom": "Porte coran petit", "cat": "Accessoires", "famille": "Porte coran petit", "type": "famille", "pa": 6.0, "pv": 15.0}, {"nom": "Porte siwak", "cat": "Accessoires", "famille": "Porte siwak", "type": "famille", "pa": 0.5, "pv": 1.0}, {"nom": "Siwak", "cat": "Accessoires", "famille": "Siwak", "type": "famille", "pa": 0.31, "pv": 1.0}, {"nom": "Tapis", "cat": "Accessoires", "famille": "Tapis", "type": "famille", "pa": 2.5, "pv": 8.0}, {"nom": "Tapis avec dossier", "cat": "Accessoires", "famille": "Tapis avec dossier", "type": "famille", "pa": 12.5, "pv": 25.0}, {"nom": "Tapis de voyage", "cat": "Accessoires", "famille": "Tapis de voyage", "type": "famille", "pa": 1.5, "pv": 4.0}, {"nom": "Tapis dos", "cat": "Accessoires", "famille": "Tapis dos", "type": "famille", "pa": 12.5, "pv": 25.0}, {"nom": "Tapis voy", "cat": "Accessoires", "famille": "Tapis voy", "type": "famille", "pa": 1.5, "pv": 4.0}, {"nom": "Tapis éducatif (prayer mat )", "cat": "Accessoires", "famille": "Tapis éducatif (prayer mat )", "type": "famille", "pa": 12.5, "pv": 22.5}, {"nom": "Veileuse", "cat": "Accessoires", "famille": "Veileuse", "type": "famille", "pa": 17.5, "pv": 35.0}, {"nom": "Veilleuse", "cat": "Accessoires", "famille": "Veilleuse", "type": "famille", "pa": 17.5, "pv": 35.0}, {"nom": "Voile", "cat": "Accessoires", "famille": "Voile", "type": "famille", "pa": 5.0, "pv": 12.5}, {"nom": "Amelou", "cat": "Alimentaire", "famille": "Amelou", "type": "famille", "pa": 5.0, "pv": 10.0}, {"nom": "Bonbon", "cat": "Alimentaire", "famille": "Bonbon", "type": "famille", "pa": 0.9, "pv": 2.0}, {"nom": "Choco dubai", "cat": "Alimentaire", "famille": "Choco dubai", "type": "famille", "pa": 3.5, "pv": 10.0}, {"nom": "Complément alimentaire", "cat": "Alimentaire", "famille": "Complément alimentaire", "type": "famille", "pa": 7.5, "pv": 15.0}, {"nom": "Costus indien", "cat": "Alimentaire", "famille": "Costus indien", "type": "famille", "pa": 2.5, "pv": 5.0}, {"nom": "Cristaux de menthe", "cat": "Alimentaire", "famille": "Cristaux de menthe", "type": "famille", "pa": 2.5, "pv": 5.0}, {"nom": "Datte", "cat": "Alimentaire", "famille": "Datte", "type": "famille", "pa": 6.5, "pv": 12.5}, {"nom": "Datte hajwa", "cat": "Alimentaire", "famille": "Datte hajwa", "type": "famille", "pa": 6.5, "pv": 12.5}, {"nom": "Datte medjoul", "cat": "Alimentaire", "famille": "Datte medjoul", "type": "famille", "pa": 5.0, "pv": 10.0}, {"nom": "Datte sukari", "cat": "Alimentaire", "famille": "Datte sukari", "type": "famille", "pa": 2.5, "pv": 5.0}, {"nom": "Dubai choco", "cat": "Alimentaire", "famille": "Dubai choco", "type": "famille", "pa": 3.5, "pv": 10.0}, {"nom": "Eau de zamzam", "cat": "Alimentaire", "famille": "Eau de zamzam", "type": "famille", "pa": 0.0, "pv": 0.0}, {"nom": "Eau de zamzam-grande", "cat": "Alimentaire", "famille": "Eau de zamzam-grande", "type": "famille", "pa": 15.5, "pv": 25.0}, {"nom": "Eau de zamzam-petite", "cat": "Alimentaire", "famille": "Eau de zamzam-petite", "type": "famille", "pa": 1.5, "pv": 3.0}, {"nom": "Huile", "cat": "Alimentaire", "famille": "Huile", "type": "famille", "pa": 3.0, "pv": 6.0}, {"nom": "Huile de nigelle-125 ml", "cat": "Alimentaire", "famille": "Huile", "type": "sousfamille", "pa": 3.0, "pv": 6.0}, {"nom": "Huile de nigelle-25o ml", "cat": "Alimentaire", "famille": "Huile", "type": "sousfamille", "pa": 3.0, "pv": 6.0}, {"nom": "Huile de nigelle-60 ml", "cat": "Alimentaire", "famille": "Huile", "type": "sousfamille", "pa": 3.0, "pv": 6.0}, {"nom": "Kebir", "cat": "Alimentaire", "famille": "Tisane", "type": "sousfamille", "pa": 1.65, "pv": 3.0}, {"nom": "Medjoul", "cat": "Alimentaire", "famille": "Medjoul", "type": "famille", "pa": 5.0, "pv": 10.0}, {"nom": "Mellasse de dattes", "cat": "Alimentaire", "famille": "Mellasse de dattes", "type": "famille", "pa": 3.0, "pv": 6.5}, {"nom": "Miel", "cat": "Alimentaire", "famille": "Miel", "type": "famille", "pa": 10.0, "pv": 20.0}, {"nom": "Miel 7", "cat": "Alimentaire", "famille": "Miel 7", "type": "famille", "pa": 23.0, "pv": 35.0}, {"nom": "Miel 7 guérison", "cat": "Alimentaire", "famille": "Miel 7 guérison", "type": "famille", "pa": 23.0, "pv": 35.0}, {"nom": "Miel king kong", "cat": "Alimentaire", "famille": "Miel king kong", "type": "famille", "pa": 10.0, "pv": 20.0}, {"nom": "Miel kk", "cat": "Alimentaire", "famille": "Miel kk", "type": "famille", "pa": 10.0, "pv": 20.0}, {"nom": "Miel rose", "cat": "Alimentaire", "famille": "Miel rose", "type": "famille", "pa": 10.0, "pv": 15.0}, {"nom": "Nigelle gélule", "cat": "Alimentaire", "famille": "Huile", "type": "sousfamille", "pa": 3.0, "pv": 6.0}, {"nom": "Noix de pécan", "cat": "Alimentaire", "famille": "Noix de pécan", "type": "famille", "pa": 3.5, "pv": 7.5}, {"nom": "Shilajit", "cat": "Alimentaire", "famille": "Shilajit", "type": "famille", "pa": 10.0, "pv": 20.0}, {"nom": "Sukari", "cat": "Alimentaire", "famille": "Sukari", "type": "famille", "pa": 2.5, "pv": 5.0}, {"nom": "Tablette de chocolat dubai", "cat": "Alimentaire", "famille": "Tablette de chocolat dubai", "type": "famille", "pa": 3.5, "pv": 10.0}, {"nom": "Tablette dubai", "cat": "Alimentaire", "famille": "Tablette dubai", "type": "famille", "pa": 3.5, "pv": 10.0}, {"nom": "Tiba shock", "cat": "Alimentaire", "famille": "Tiba shock", "type": "famille", "pa": 4.18, "pv": 8.5}, {"nom": "Tisane", "cat": "Alimentaire", "famille": "Tisane", "type": "famille", "pa": 1.65, "pv": 3.0}, {"nom": "Tisane ging", "cat": "Alimentaire", "famille": "Tisane ging", "type": "famille", "pa": 1.25, "pv": 3.0}, {"nom": "Tisane gingembre", "cat": "Alimentaire", "famille": "Tisane gingembre", "type": "famille", "pa": 1.25, "pv": 3.0}, {"nom": "Tisane nig", "cat": "Alimentaire", "famille": "Tisane nig", "type": "famille", "pa": 3.0, "pv": 6.0}, {"nom": "Tisane nigelle", "cat": "Alimentaire", "famille": "Tisane nigelle", "type": "famille", "pa": 3.0, "pv": 6.0}, {"nom": "Tisane sen", "cat": "Alimentaire", "famille": "Tisane sen", "type": "famille", "pa": 1.5, "pv": 3.5}, {"nom": "Tisane séné", "cat": "Alimentaire", "famille": "Tisane séné", "type": "famille", "pa": 1.5, "pv": 3.5}, {"nom": "Zamzam", "cat": "Alimentaire", "famille": "Zamzam", "type": "famille", "pa": 0.0, "pv": 0.0}, {"nom": "Zamzam gr", "cat": "Alimentaire", "famille": "Zamzam gr", "type": "famille", "pa": 15.5, "pv": 25.0}, {"nom": "Zamzam pt", "cat": "Alimentaire", "famille": "Zamzam pt", "type": "famille", "pa": 1.5, "pv": 3.0}, {"nom": "Dentifrice", "cat": "Cosmétique", "famille": "Dentifrice", "type": "famille", "pa": 0.9, "pv": 2.5}, {"nom": "Déodorant", "cat": "Cosmétique", "famille": "Déodorant", "type": "famille", "pa": 1.5, "pv": 2.5}, {"nom": "Henne poudre", "cat": "Cosmétique", "famille": "Henne poudre", "type": "famille", "pa": 1.5, "pv": 4.0}, {"nom": "Huile argan", "cat": "Cosmétique", "famille": "Huile argan", "type": "famille", "pa": 5.1, "pv": 10.0}, {"nom": "Huile barbe", "cat": "Cosmétique", "famille": "Huile barbe", "type": "famille", "pa": 2.5, "pv": 5.0}, {"nom": "Huile d'argan", "cat": "Cosmétique", "famille": "Huile d'argan", "type": "famille", "pa": 5.1, "pv": 10.0}, {"nom": "Huile à barbe", "cat": "Cosmétique", "famille": "Huile à barbe", "type": "famille", "pa": 2.5, "pv": 5.0}, {"nom": "Moule hénne", "cat": "Cosmétique", "famille": "Moule hénne", "type": "famille", "pa": 0.0, "pv": 0.0}, {"nom": "Peigne à barbe", "cat": "Cosmétique", "famille": "Peigne à barbe", "type": "famille", "pa": 5.0, "pv": 10.0}, {"nom": "Poudre de nila", "cat": "Cosmétique", "famille": "Poudre de nila", "type": "famille", "pa": 2.0, "pv": 4.0}, {"nom": "Savon beldi", "cat": "Cosmétique", "famille": "Savon beldi", "type": "famille", "pa": 1.25, "pv": 3.0}, {"nom": "Calendrier", "cat": "Livre", "famille": "Calendrier", "type": "famille", "pa": 10.0, "pv": 20.0}, {"nom": "Coran", "cat": "Livre", "famille": "Chechya", "type": "sousfamille", "pa": 3.5, "pv": 7.5}, {"nom": "Livre", "cat": "Livre", "famille": "Livre", "type": "famille", "pa": 18.0, "pv": 30.0}, {"nom": "Quizz", "cat": "Livre", "famille": "Quizz", "type": "famille", "pa": 5.45, "pv": 10.9}, {"nom": "Bakhour", "cat": "Parfum", "famille": "Bakhour", "type": "famille", "pa": 2.5, "pv": 5.0}, {"nom": "Brume", "cat": "Parfum", "famille": "Brume", "type": "famille", "pa": 5.0, "pv": 10.0}, {"nom": "Camfre", "cat": "Parfum", "famille": "Camfre", "type": "famille", "pa": 0.31, "pv": 1.0}, {"nom": "Charbon", "cat": "Parfum", "famille": "Charbon", "type": "famille", "pa": 3.5, "pv": 5.0}, {"nom": "Coffret el nabil", "cat": "Parfum", "famille": "Coffret el nabil", "type": "famille", "pa": 14.0, "pv": 29.0}, {"nom": "Coffret ph", "cat": "Parfum", "famille": "Coffret ph", "type": "famille", "pa": 18.0, "pv": 39.0}, {"nom": "Coffret phoenix", "cat": "Parfum", "famille": "Coffret phoenix", "type": "famille", "pa": 18.0, "pv": 39.0}, {"nom": "Cp", "cat": "Parfum", "famille": "Cp", "type": "famille", "pa": 10.0, "pv": 25.0}, {"nom": "Cp parfum", "cat": "Parfum", "famille": "Cp parfum", "type": "famille", "pa": 10.0, "pv": 25.0}, {"nom": "El nabil", "cat": "Parfum", "famille": "El nabil", "type": "famille", "pa": 7.5, "pv": 15.0}, {"nom": "El nabil int", "cat": "Parfum", "famille": "El nabil int", "type": "famille", "pa": 5.0, "pv": 10.0}, {"nom": "El nabil intense", "cat": "Parfum", "famille": "El nabil intense", "type": "famille", "pa": 5.0, "pv": 10.0}, {"nom": "Encens", "cat": "Parfum", "famille": "Encens", "type": "famille", "pa": 0.87, "pv": 2.5}, {"nom": "Henne cône", "cat": "Parfum", "famille": "Henne cône", "type": "famille", "pa": 1.0, "pv": 3.0}, {"nom": "Musc", "cat": "Parfum", "famille": "El Nabil", "type": "sousfamille", "pa": 7.5, "pv": 15.0}, {"nom": "Musc maison", "cat": "Parfum", "famille": "Adam clock", "type": "sousfamille", "pa": 15.0, "pv": 30.0}, {"nom": "Musc patel", "cat": "Parfum", "famille": "Porte siwak", "type": "sousfamille", "pa": 0.5, "pv": 1.0}, {"nom": "Nabil", "cat": "Parfum", "famille": "Nabil", "type": "famille", "pa": 7.5, "pv": 15.0}, {"nom": "Sent bon voiture", "cat": "Parfum", "famille": "Sent bon voiture", "type": "famille", "pa": 2.5, "pv": 6.0}, {"nom": "Stick", "cat": "Parfum", "famille": "Stick", "type": "famille", "pa": 2.0, "pv": 5.0}, {"nom": "Yara", "cat": "Parfum", "famille": "Yara", "type": "famille", "pa": 13.0, "pv": 25.0}, {"nom": "Bint adam", "cat": "Vêtement enfant", "famille": "Bint adam", "type": "famille", "pa": 18.5, "pv": 39.0}, {"nom": "Body", "cat": "Vêtement enfant", "famille": "Body", "type": "famille", "pa": 5.0, "pv": 15.0}, {"nom": "Body qamis", "cat": "Vêtement enfant", "famille": "Body qamis", "type": "famille", "pa": 5.0, "pv": 15.0}, {"nom": "Djilbeb enfant", "cat": "Vêtement enfant", "famille": "Djilbeb enfant", "type": "famille", "pa": 10.0, "pv": 20.0}, {"nom": "Qamis enf", "cat": "Vêtement enfant", "famille": "Qamis enf", "type": "famille", "pa": 8.5, "pv": 22.5}, {"nom": "Qamis enfant", "cat": "Vêtement enfant", "famille": "Qamis enfant", "type": "famille", "pa": 8.5, "pv": 22.5}, {"nom": "Tahara", "cat": "Vêtement enfant", "famille": "Tahara", "type": "famille", "pa": 10.0, "pv": 40.0}, {"nom": "Tenue tahara", "cat": "Vêtement enfant", "famille": "Tenue tahara", "type": "famille", "pa": 10.0, "pv": 40.0}, {"nom": "Abaya", "cat": "Vêtement femme", "famille": "Abaya", "type": "famille", "pa": 15.0, "pv": 30.0}, {"nom": "Cape dubai", "cat": "Vêtement femme", "famille": "Chechya", "type": "sousfamille", "pa": 3.5, "pv": 7.5}, {"nom": "Djilbab", "cat": "Vêtement femme", "famille": "Djilbab", "type": "famille", "pa": 7.5, "pv": 29.0}, {"nom": "Djilbeb", "cat": "Vêtement femme", "famille": "Djilbeb", "type": "famille", "pa": 7.5, "pv": 29.0}, {"nom": "Dubai", "cat": "Vêtement femme", "famille": "Habaya", "type": "sousfamille", "pa": 15.0, "pv": 30.0}, {"nom": "Habaya", "cat": "Vêtement femme", "famille": "Habaya", "type": "famille", "pa": 15.0, "pv": 30.0}, {"nom": "Jabador", "cat": "Vêtement femme", "famille": "Jabador", "type": "famille", "pa": 26.0, "pv": 70.0}, {"nom": "Jilbab", "cat": "Vêtement femme", "famille": "Jilbab", "type": "famille", "pa": 7.5, "pv": 29.0}, {"nom": "Jilbeb", "cat": "Vêtement femme", "famille": "Jilbeb", "type": "famille", "pa": 7.5, "pv": 29.0}, {"nom": "Jupe", "cat": "Vêtement femme", "famille": "Jupe", "type": "famille", "pa": 6.0, "pv": 12.0}, {"nom": "Khimar", "cat": "Vêtement femme", "famille": "Khimar", "type": "famille", "pa": 7.5, "pv": 17.5}, {"nom": "Kimhar", "cat": "Vêtement femme", "famille": "Kimhar", "type": "famille", "pa": 7.5, "pv": 17.5}, {"nom": "Robe", "cat": "Vêtement femme", "famille": "Robe", "type": "famille", "pa": 22.0, "pv": 49.0}, {"nom": "Robe ch", "cat": "Vêtement femme", "famille": "Robe ch", "type": "famille", "pa": 10.5, "pv": 19.5}, {"nom": "Robe chemise", "cat": "Vêtement femme", "famille": "Robe chemise", "type": "famille", "pa": 10.5, "pv": 19.5}, {"nom": "Robe de prière", "cat": "Vêtement femme", "famille": "Robe de prière", "type": "famille", "pa": 5.0, "pv": 15.0}, {"nom": "Robe pri", "cat": "Vêtement femme", "famille": "Robe pri", "type": "famille", "pa": 5.0, "pv": 15.0}, {"nom": "Sarwal femme", "cat": "Vêtement femme", "famille": "Sarwal femme", "type": "famille", "pa": 5.0, "pv": 10.0}, {"nom": "Serwal fem", "cat": "Vêtement femme", "famille": "Serwal fem", "type": "famille", "pa": 5.0, "pv": 10.0}, {"nom": "Sittar", "cat": "Vêtement femme", "famille": "Sittar", "type": "famille", "pa": 5.0, "pv": 10.0}, {"nom": "Sous -robe", "cat": "Vêtement femme", "famille": "Sous -robe", "type": "famille", "pa": 15.0, "pv": 30.0}, {"nom": "3otra", "cat": "Vêtement homme", "famille": "3otra", "type": "famille", "pa": 5.0, "pv": 10.0}, {"nom": "Bas", "cat": "Vêtement homme", "famille": "Bas", "type": "famille", "pa": 13.0, "pv": 29.0}, {"nom": "Bas pantalon", "cat": "Vêtement homme", "famille": "Bas pantalon", "type": "famille", "pa": 13.0, "pv": 29.0}, {"nom": "Bermuda", "cat": "Vêtement homme", "famille": "Bermuda", "type": "famille", "pa": 22.0, "pv": 45.0}, {"nom": "Bermuda w", "cat": "Vêtement homme", "famille": "Bermuda w", "type": "famille", "pa": 0.0, "pv": 0.0}, {"nom": "Bermuda wassat", "cat": "Vêtement homme", "famille": "Bermuda wassat", "type": "famille", "pa": 0.0, "pv": 0.0}, {"nom": "Caftan", "cat": "Vêtement homme", "famille": "Caftan", "type": "famille", "pa": 40.0, "pv": 110.0}, {"nom": "Djellaba", "cat": "Vêtement homme", "famille": "Djellaba", "type": "famille", "pa": 13.5, "pv": 59.0}, {"nom": "Djellaba premium", "cat": "Vêtement homme", "famille": "Djellaba premium", "type": "famille", "pa": 29.0, "pv": 69.0}, {"nom": "Djellaba veste", "cat": "Vêtement homme", "famille": "Djellaba veste", "type": "famille", "pa": 20.0, "pv": 45.0}, {"nom": "Djellabah", "cat": "Vêtement homme", "famille": "Djellabah", "type": "famille", "pa": 13.5, "pv": 59.0}, {"nom": "Djellabas", "cat": "Vêtement homme", "famille": "Djellabas", "type": "famille", "pa": 13.5, "pv": 59.0}, {"nom": "Ensemble", "cat": "Vêtement homme", "famille": "Ensemble", "type": "famille", "pa": 20.0, "pv": 59.0}, {"nom": "Ensemble + 1", "cat": "Vêtement homme", "famille": "Ensemble + 1", "type": "famille", "pa": 37.5, "pv": 80.0}, {"nom": "Ensemble +1", "cat": "Vêtement homme", "famille": "Ensemble +1", "type": "famille", "pa": 37.5, "pv": 80.0}, {"nom": "Ensemble chemise", "cat": "Vêtement homme", "famille": "Ensemble chemise", "type": "famille", "pa": 22.5, "pv": 55.0}, {"nom": "Gandoura", "cat": "Vêtement homme", "famille": "Gandoura", "type": "famille", "pa": 13.0, "pv": 30.0}, {"nom": "Ihram", "cat": "Vêtement homme", "famille": "Ihram", "type": "famille", "pa": 9.0, "pv": 25.0}, {"nom": "Ihram + ceinture ihram", "cat": "Vêtement homme", "famille": "Ihram + ceinture ihram", "type": "famille", "pa": 13.5, "pv": 30.0}, {"nom": "Kamis", "cat": "Vêtement homme", "famille": "Kamis", "type": "famille", "pa": 9.0, "pv": 25.0}, {"nom": "Kamis homme", "cat": "Vêtement homme", "famille": "Kamis homme", "type": "famille", "pa": 9.0, "pv": 25.0}, {"nom": "Khol", "cat": "Vêtement homme", "famille": "Khol", "type": "famille", "pa": 2.5, "pv": 5.0}, {"nom": "Khouf", "cat": "Vêtement homme", "famille": "Khouf", "type": "famille", "pa": 6.5, "pv": 14.0}, {"nom": "Mc", "cat": "Vêtement homme", "famille": "Qamis homme", "type": "sousfamille", "pa": 9.0, "pv": 25.0}, {"nom": "Pull", "cat": "Vêtement homme", "famille": "Pull", "type": "famille", "pa": 18.5, "pv": 39.9}, {"nom": "Qamis", "cat": "Vêtement homme", "famille": "Qamis", "type": "famille", "pa": 9.0, "pv": 25.0}, {"nom": "Qamis homme", "cat": "Vêtement homme", "famille": "Qamis homme", "type": "famille", "pa": 9.0, "pv": 25.0}, {"nom": "Qamis pak", "cat": "Vêtement homme", "famille": "Qamis pak", "type": "famille", "pa": 14.0, "pv": 39.0}, {"nom": "Qamis pakis", "cat": "Vêtement homme", "famille": "Qamis pakis", "type": "famille", "pa": 14.0, "pv": 39.0}, {"nom": "Qamis pakistannais", "cat": "Vêtement homme", "famille": "Qamis pakistannais", "type": "famille", "pa": 14.0, "pv": 39.0}, {"nom": "Qamis sene", "cat": "Vêtement homme", "famille": "Qamis sene", "type": "famille", "pa": 9.0, "pv": 25.0}, {"nom": "Qamis senegalais", "cat": "Vêtement homme", "famille": "Qamis senegalais", "type": "famille", "pa": 9.0, "pv": 25.0}, {"nom": "Saroual", "cat": "Vêtement homme", "famille": "Saroual", "type": "famille", "pa": 3.5, "pv": 7.5}, {"nom": "Sarwal", "cat": "Vêtement homme", "famille": "Sarwal", "type": "famille", "pa": 3.5, "pv": 7.5}, {"nom": "Sarwal fluide", "cat": "Vêtement homme", "famille": "Sarwal", "type": "sousfamille", "pa": 3.5, "pv": 7.5}, {"nom": "Sarwal timssan", "cat": "Vêtement homme", "famille": "Sarwal", "type": "sousfamille", "pa": 3.5, "pv": 7.5}, {"nom": "Sarwal turque", "cat": "Vêtement homme", "famille": "Sarwal", "type": "sousfamille", "pa": 3.5, "pv": 7.5}, {"nom": "Sarwal wasabit", "cat": "Vêtement homme", "famille": "Sarwal", "type": "sousfamille", "pa": 3.5, "pv": 7.5}, {"nom": "Serwal", "cat": "Vêtement homme", "famille": "Serwal", "type": "famille", "pa": 3.5, "pv": 7.5}, {"nom": "Short", "cat": "Vêtement homme", "famille": "Short", "type": "famille", "pa": 12.5, "pv": 35.0}, {"nom": "Short bain", "cat": "Vêtement homme", "famille": "Short bain", "type": "famille", "pa": 22.0, "pv": 39.9}, {"nom": "Short de bain", "cat": "Vêtement homme", "famille": "Short de bain", "type": "famille", "pa": 22.0, "pv": 39.9}, {"nom": "Sur-qamis", "cat": "Vêtement homme", "famille": "Sur-qamis", "type": "famille", "pa": 18.5, "pv": 39.0}, {"nom": "T shirt", "cat": "Vêtement homme", "famille": "T shirt", "type": "famille", "pa": 9.0, "pv": 25.0}];
 
@@ -614,6 +614,17 @@ const DROITS_VENDEUR={encaisser:true,voirMarge:true,remise:true,retour:true,cata
 const DATE_DEBUT='2024-10-24';
 
 const $=s=>document.querySelector(s);
+/* Excel et PDF : charg\u00e9s seulement quand on en a besoin (le service worker les garde pour le hors ligne) */
+const LIBS_SUP={xlsx:'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+ pdf:'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'};
+const libsSup={};
+function chargerLib(k){
+  if(k==='xlsx'&&window.XLSX||k==='pdf'&&window.jspdf)return Promise.resolve();
+  return libsSup[k]||(libsSup[k]=new Promise((ok,ko)=>{
+    const sc=document.createElement('script');sc.src=LIBS_SUP[k];sc.onload=()=>ok();
+    sc.onerror=()=>{delete libsSup[k];sc.remove();ko(new Error('Module '+(k==='pdf'?'PDF':'Excel')+' indisponible, v\u00e9rifie la connexion'))};
+    document.head.appendChild(sc)}));
+}
 const APP=()=>document.getElementById('app');
 const eur=n=>(Math.round((+n||0)*100)/100).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+'\u00a0\u20ac';
 const nb=n=>(+n||0).toLocaleString('fr-FR');
@@ -679,9 +690,13 @@ async function chargerRole(){
 function ecoutes(){
   unsub.forEach(f=>f());unsub=[];
   unsub.push(col('produits').onSnapshot(s=>{
+    const avant=S.produits;
     S.produits=s.docs.map(d=>Object.assign({id:d.id},d.data()));
     if(!S.vendeur)return;
-    if(S.page==='caisse'&&document.getElementById('grille'))dessinerGrille();else if(invActif)invRedessiner();else rendre();
+    // seul l'\u00e9cran qui affiche les produits est mis \u00e0 jour (les autres gardent leur saisie et leur d\u00e9filement)
+    if(invActif)invRedessiner();
+    else if(S.page==='caisse')dessinerGrille();
+    else if(S.page==='stock')majStock(s,avant);
   },e=>toast('Lecture produits : '+e.code,'ko')));
   unsub.push(col('utilisateurs').onSnapshot(async s=>{
     S.users=s.docs.map(d=>Object.assign({id:d.id},d.data()));
@@ -696,7 +711,10 @@ function ecoutes(){
     invRecevoir(d.exists?d.data():null);
   },e=>{}));
   unsub.push(docParams().onSnapshot(d=>{S.params=d.exists?d.data():{};
-    if(S.vendeur&&S.page!=='caisse'&&!invActif)rendre()}));
+    if(!S.vendeur||invActif)return;
+    if(S.page==='caisse')dessinerCAJour();else if(S.page!=='retour')redessinerVue()}));
+  unsub.push(()=>{if(ecouteJour){ecouteJour.stop();ecouteJour=null}});
+  ecouterVentesJour();
   demarrerApp();
 }
 let semeEnCours=false,semeEchec=false;
@@ -875,14 +893,33 @@ function rendre(){
    <div id="netbar"></div>
    <main id="vue"></main>
    <button id="haut" class="btn-haut" onclick="remonter()" aria-label="Revenir en haut">\u2191</button>
-   <nav class="bottom">${ongs.map(o=>`<button class="${S.page===o[0]?'on':''}" onclick="aller('${o[0]}')">
+   <nav class="bottom">${ongs.map(o=>`<button class="${S.page===o[0]?'on':''}" data-p="${o[0]}" onclick="aller('${o[0]}')">
      <span class="ico"><svg viewBox="0 0 24 24">${ICO[o[0]]}</svg></span>${o[1]}</button>`).join('')}</nav>`;
   majReseau();
-  ({caisse:vueCaisse,retour:vueRetour,produits:vueProduits,stock:vueStock,stats:vueStats,options:vueOptions}[S.page])();
+  VUES[S.page]();
   requestAnimationFrame(mesurerMenu);setTimeout(mesurerMenu,400);majBoutonHaut();
   programmerMesureMenu();
 }
-function aller(p){invActif=false;S.page=p;rendre()}
+const VUES={caisse:vueCaisse,retour:vueRetour,produits:vueProduits,stock:vueStock,stats:vueStats,options:vueOptions};
+/* Changer d'onglet : l'en-t\u00eate et le menu restent en place, seul le contenu est remplac\u00e9 */
+function aller(p){
+  invActif=false;
+  const nav=document.querySelector('nav.bottom'),z=$('#vue');
+  if(!S.vendeur||!nav||!z||!VUES[p]||!ongletsDispo().find(o=>o[0]===p)){S.page=p;return rendre()}
+  S.page=p;
+  nav.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.p===p));
+  z.onscroll=null;z.scrollTop=0;window.scrollTo(0,0);
+  VUES[p]();majBoutonHaut();
+}
+/* Redessine l'\u00e9cran courant en gardant le d\u00e9filement et le champ en cours de saisie */
+function redessinerVue(){
+  const z=$('#vue');if(!z||!S.vendeur||!VUES[S.page])return rendre();
+  const y=z.scrollTop,wy=window.scrollY,a=document.activeElement,aid=a&&a!==document.body?a.id:'';
+  let pos=null;try{pos=a.selectionStart}catch(e){}
+  VUES[S.page]();
+  z.scrollTop=y;if(wy)window.scrollTo(0,wy);
+  if(aid){const n=document.getElementById(aid);if(n&&n!==a){n.focus();try{if(pos!=null)n.setSelectionRange(pos,pos)}catch(e){}}}
+}
 /* ---- Suivi de la synchronisation : \u00e9crit localement, pas encore envoy\u00e9 au serveur ---- */
 let enAttente=0,syncOk=false,minuteurSync=null;
 function suivre(p){
@@ -964,16 +1001,23 @@ function ordreCats(){
 }
 function prodActifs(){return S.produits.filter(p=>p.actif!==false)}
 let caJour={ca:0,nb:0,charge:false};
-async function majCAJour(force){
-  if(caJour.charge&&!force)return dessinerCAJour();
-  try{
-    const s=await col('ventes').where('date','==',today()).get();
-    const v=s.docs.map(d=>d.data());
+/* Ventes du jour \u00e9cout\u00e9es en direct : CA du jour et onglet Stats \u00ab Jour \u00bb sans relecture apr\u00e8s chaque vente */
+let ventesJour=null,ecouteJour=null;
+function ecouterVentesJour(){
+  const j=today();
+  if(!db||!S.user||ecouteJour&&ecouteJour.j===j)return;
+  if(ecouteJour)ecouteJour.stop();
+  const stop=col('ventes').where('date','==',j).onSnapshot(s=>{
+    const v=s.docs.map(d=>d.data());ventesJour={j,v};
     caJour={ca:v.reduce((a,x)=>a+(+x.total||0),0),nb:v.filter(x=>x.type!=='RETOUR').length,
       marge:v.reduce((a,x)=>a+(+x.marge||0),0),charge:true};
-  }catch(e){caJour.charge=true}
-  dessinerCAJour();
+    dessinerCAJour();
+    if(S.page==='stats'&&perStat==='jour'&&dateStat===j&&$('#statz')){
+      const z=$('#vue'),y=z?z.scrollTop:0;dessinerStats(v,j,j);if(z)z.scrollTop=y}
+  },e=>{if(ecouteJour&&ecouteJour.stop===stop)ecouteJour=null;caJour.charge=true;dessinerCAJour()});
+  ecouteJour={j,stop};
 }
+function majCAJour(force){ecouterVentesJour();dessinerCAJour()}
 function lundiDe(d){const x=new Date(d+'T12:00:00');x.setDate(x.getDate()-((x.getDay()+6)%7));return x.toISOString().slice(0,10)}
 function objJour(d){
   const w=(S.params.objectifsSemaines||{})[lundiDe(d)];
@@ -1121,7 +1165,7 @@ function vueCaisse(){
       </div>
       <div class="chips-wrap">
         <button class="chip ${(S.q||S.cat)?'on':''}" title="Purger l\u2019affichage" onclick="purgerAffichage()" style="font-size:15px">\u{1F3E0}</button>
-        <div class="chips">${cats.map(c=>`<button class="chip ${S.cat===c?'on':''}" onclick="choisirCat('${esc(c)}')">${esc(c)}</button>`).join('')}</div></div>
+        <div class="chips">${cats.map(c=>`<button class="chip ${S.cat===c?'on':''}" data-cat="${esc(c)}" onclick="choisirCat('${esc(c)}')">${esc(c)}</button>`).join('')}</div></div>
       <div class="grille" id="grille"></div>
     </div>
     <div class="panier ${S.panier.length&&(panierOuvert||window.innerWidth>900)?'':'replie'}" id="panier">
@@ -1131,7 +1175,8 @@ function vueCaisse(){
     </div></div>
     <button class="fab-haut" id="fabhaut" title="Remonter" onclick="remonter()">\u2191</button>`;
   const q=$('#q');
-  q.addEventListener('input',e=>{S.q=e.target.value;dessinerGrille();majCroix()});
+  q.addEventListener('input',e=>{S.q=e.target.value;majCroix();majChips();
+    clearTimeout(minuteurRecherche);minuteurRecherche=setTimeout(dessinerGrille,S.q.trim().length<3?0:120)});
   q.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();scanner(S.q.trim())}});
   dessinerCAJour();majCAJour();dessinerGrille();dessinerPanier();ecouterDefilement();
   if(window.innerWidth>=900&&!('ontouchstart' in window))setTimeout(()=>{const e=$('#q');if(e)e.focus()},80);
@@ -1144,9 +1189,16 @@ function majCroix(){
   else if(!S.q&&c)c.remove();
 }
 function viderRecherche(){
+  clearTimeout(minuteurRecherche);
   S.q='';const q=$('#q');if(q){q.value='';
     if(window.innerWidth>=900&&!('ontouchstart' in window))q.focus()}
-  majCroix();dessinerGrille();
+  majCroix();majChips();dessinerGrille();
+}
+/* Recherche : on attend une courte pause dans la frappe avant de redessiner la grille */
+let minuteurRecherche=0;
+function majChips(){
+  document.querySelectorAll('.chips .chip').forEach(b=>b.classList.toggle('on',b.dataset.cat===S.cat));
+  const h=document.querySelector('.chips-wrap > .chip');if(h)h.classList.toggle('on',!!(S.q||S.cat));
 }
 function ecouterDefilement(){
   const m=document.getElementById('vue');if(!m)return;
@@ -1159,8 +1211,11 @@ function basculerPanier(){
   const p=$('#panier');if(p)p.classList.toggle('replie',!panierOuvert);
   const f=$('#flp');if(f)f.textContent=panierOuvert?'\u25BC':'\u25B2';
 }
-function choisirCat(c){S.cat=(S.cat===c?'':c);vueCaisse()}
-function purgerAffichage(){S.q='';S.cat='';vueCaisse()}
+function choisirCat(c){S.cat=(S.cat===c?'':c);if(!$('#grille'))return vueCaisse();majChips();dessinerGrille()}
+function purgerAffichage(){
+  if(!$('#grille')){S.q='';S.cat='';return vueCaisse()}
+  S.cat='';viderRecherche();
+}
 function dessinerGrille(){
   const g=$('#grille');if(!g)return;
   const q=S.q.trim().toLowerCase();
@@ -1180,16 +1235,30 @@ function dessinerGrille(){
   else if(cat&&cat!=='Tous')l=l.filter(p=>p.cat===cat);
   l=l.sort((a,b)=>a.nom.localeCompare(b.nom,'fr')||(a.marque||'').localeCompare(b.marque||'','fr')).slice(0,240);
   if(!l.length)return g.innerHTML='<p class="vide">Aucun produit</p>';
-  g.innerHTML=(fav?'<div class="bandeau-fav">\u2605 Mode favoris \u2014 touche un produit pour l\u2019\u00e9pingler. Il ne part pas au panier.</div>':'')
-   +l.map(p=>{
-    const pk=estPack(p),st=stockAff(p),seuil=+p.seuil||0,bas=!pk&&seuil>0&&st<=seuil;
-    return `<button class="pastille-prod ${st<=0&&!fav?'rupture':''} ${fav?'mode-fav':''}" onclick="${fav?`epingler('${p.id}')`:`ajouter('${p.id}')`}">
+  const el=l.map(p=>tuile(p,fav));
+  if(fav){const b=document.createElement('div');b.className='bandeau-fav';
+    b.textContent='\u2605 Mode favoris \u2014 touche un produit pour l\u2019\u00e9pingler. Il ne part pas au panier.';el.unshift(b)}
+  const deja=g.children;
+  if(!fav&&deja.length===el.length&&el.every((x,i)=>deja[i]===x))return; // rien n'a chang\u00e9
+  g.replaceChildren(...el);
+}
+/* Tuiles de la grille gard\u00e9es en m\u00e9moire : seule une tuile dont le produit a chang\u00e9 est recr\u00e9\u00e9e.
+   La vignette (base64) est pos\u00e9e directement sur l'image au lieu d'\u00eatre recopi\u00e9e dans le HTML. */
+const tuiles=new Map();
+function tuile(p,fav){
+  const pk=estPack(p),st=stockAff(p),seuil=+p.seuil||0,bas=!pk&&seuil>0&&st<=seuil,img=S.vignettes[p.id]||'';
+  const sig=[fav?1:0,p.nom,p.marque,p.cat,st,seuil,p.pv,p.favori?1:0,pk?1:0].join('|');
+  const t=tuiles.get(p.id);if(t&&t.sig===sig&&t.img===img)return t.el;
+  const tpl=document.createElement('template');
+  tpl.innerHTML=`<button class="pastille-prod ${st<=0&&!fav?'rupture':''} ${fav?'mode-fav':''}" onclick="${fav?`epingler('${p.id}')`:`ajouter('${p.id}')`}">
       <span class="fav ${p.favori?'on':''}" onclick="event.stopPropagation();basculerFavori('${p.id}')">${p.favori?'\u2605':'\u2606'}</span>
-      ${S.vignettes[p.id]?`<img class="vign" src="${S.vignettes[p.id]}" alt="" loading="lazy">`:''}
+      ${img?'<img class="vign" alt="" loading="lazy">':''}
       <span class="n">${esc(p.nom)}</span>${p.marque?`<span class="mq">${esc(p.marque)}</span>`:''}
       ${fav?`<span class="s">${p.favori?'d\u00e9j\u00e0 favori':esc(p.cat||'')}</span><span class="epingle">${p.favori?'\u2605 \u00e9ping\u00e9':'+ Favoris'}</span>`
            :`<span class="s ${bas?'bas':''}">${pk?'<span class="pk">pack</span> ':''}${st<=0?'rupture':(pk?nb(st)+' dispo':'stock '+nb(st))}</span><span class="p">${eur(p.pv)}</span>`}
-      </button>`}).join('');
+      </button>`;
+  const el=tpl.content.firstElementChild;if(img)el.querySelector('img').src=img;
+  tuiles.set(p.id,{sig,img,el});return el;
 }
 async function epingler(id){
   const p=S.produits.find(x=>x.id===id);if(!p)return;
@@ -1555,6 +1624,7 @@ function reinitialiserCaisse(){
   S.panier=[];S.remiseTicket=0;S.q='';S.cat='';S.echange=null;S.avoirsPanier=[];panierOuvert=false;majCAJour(true);vueCaisse();
 }
 function apresVente(v,rendu,renduEchange){
+  chargerLib('pdf').catch(()=>{}); // pr\u00eat avant un appui sur PDF/Partager
   modale(`<h2 style="color:var(--vert)">\u2713 ${v.echangeRetour?'\u00c9change enregistr\u00e9':'Vente enregistr\u00e9e'}</h2>
    <div class="kpi" style="margin-bottom:8px"><div class="l">Ticket ${esc(v.num)}</div><div class="v">${eur(v.total)}</div>
     <div class="d">${v.reglements.map(r=>libMode(r.mode)+' '+eur(r.montant)).join(' + ')}${rendu>0.004?' \u00b7 <b>rendu '+eur(rendu)+'</b>':''}</div></div>
@@ -1615,7 +1685,7 @@ function dessinerCodesTicket(racine){
 }
 async function apercuTicket(num){
   const v=await venteParNum(num);if(!v)return toast('Ticket introuvable','ko');
-  dernierTicket=v;
+  dernierTicket=v;chargerLib('pdf').catch(()=>{});
   modale(`<h2>Ticket ${esc(v.num)}</h2>
    <div class="ticket-apercu" id="apercuTk">${htmlTicket(v)}</div>
    <div class="tk-actions">
@@ -1645,6 +1715,7 @@ async function imprimerTicket(num){
 }
 async function pdfTicket(num){
   const v=await venteParNum(num);if(!v)return;
+  try{await chargerLib('pdf')}catch(e){return toast(e.message,'ko')}
   const {jsPDF}=window.jspdf;
   const lignes=v.lignes.length, h=125+lignes*9+(v.reglements||[]).length*5+(v.echangeRetour?20+v.echangeRetour.lignes.length*4:0);
   const d=new jsPDF({unit:'mm',format:[58,h]});
@@ -1893,7 +1964,7 @@ let pq='';
 let catsOuvertes=new Set();
 function ligneProduit(p){
   const pk=estPack(p),st=stockAff(p);
-  return `<tr class="${!pk&&st<0?'neg':((!pk&&+p.seuil>0&&st<=+p.seuil)?'alerte':'')}">
+  return `<tr data-id="${p.id}" class="${!pk&&st<0?'neg':((!pk&&+p.seuil>0&&st<=+p.seuil)?'alerte':'')}">
        <td><b>${esc(p.nom)}</b>${p.marque?` <span class="mq-l">${esc(p.marque)}</span>`:''}${pk?' <span class="pill pk">pack</span>':''}${p.actif===false?' <span class="pill nr">inactif</span>':''}${!p.pv?' <span class="pill ret">prix \u00e0 saisir</span>':''}
          ${pk?`<div class="muted" style="font-size:11.5px;margin-top:2px">${esc(libPack(p))}</div>`:''}</td>
        <td class="tright" data-l="PV"><b>${eur(p.pv)}</b></td>
@@ -2296,7 +2367,7 @@ function imprimerEtiquettes(){
 
 /* ============ STOCK ============ */
 let stockOuvert={neg:false,appro:false,mvt:false};
-function vueStock(){
+function vueStock(partiel){
   const admin=S.role==='admin';
   const actifs=S.produits.filter(p=>p.actif!==false);
   const alertes=actifs.filter(p=>!estPack(p)&&+p.seuil>0&&(+p.stock||0)<=+p.seuil).sort((a,b)=>(+a.stock||0)-(+b.stock||0));
@@ -2325,11 +2396,21 @@ function vueStock(){
           <th class="tright">PV</th><th class="tright">Stock</th><th>Entr\u00e9e</th><th>Fav</th><th></th></tr></thead><tbody>
           ${g.l.map(ligneProduit).join('')}</tbody></table></div>`:''}
       </div>`}).join(''):'<p class="muted">Aucun produit.</p>';
-  $('#vue').innerHTML=`<div class="page">
-   <div class="kpis k3">
+  const kpis=`<div class="kpis k3" id="stk-kpis">
      <div class="kpi"><div class="l">Valeur du stock</div><div class="v">${eur(valeur)}</div></div>
      <div class="kpi"><div class="l">Sous le seuil</div><div class="v" style="color:${alertes.length?'var(--rouge)':'var(--vert)'}">${alertes.length}</div></div>
-     <div class="kpi"><div class="l">R\u00e9f\u00e9rences</div><div class="v">${actifs.length}</div></div></div>
+     <div class="kpi"><div class="l">R\u00e9f\u00e9rences</div><div class="v">${actifs.length}</div></div></div>`;
+  const alertesHtml=`<div id="stk-al">${negs.length?replie('neg','\u26a0 Stocks n\u00e9gatifs ('+negs.length+')','var(--rouge)',()=>`
+     <p class="muted" style="margin-bottom:8px">Articles vendus sans avoir \u00e9t\u00e9 entr\u00e9s en stock. Ouvre un produit pour le corriger.</p>
+     <table class="mob"><tbody>${negs.map(p=>`<tr class="neg"><td><b>${esc(nomComplet(p))}</b></td><td class="tright" data-l="Stock"><b style="color:var(--rouge)">${nb(p.stock)}</b></td>
+       <td class="tright"><button class="btn sm ghost" onclick="editerProduit('${p.id}')">Ouvrir</button></td></tr>`).join('')}</tbody></table>`):''}
+   ${alertes.length?replie('appro','\u26a0 \u00c0 r\u00e9approvisionner ('+alertes.length+')','',()=>`
+     <table class="mob"><tbody>${alertes.slice(0,50).map(p=>`<tr class="alerte"><td><b>${esc(nomComplet(p))}</b></td><td class="tright" data-l="Stock"><b>${nb(p.stock||0)}</b></td>
+       <td class="tright" data-l="Seuil">${nb(p.seuil)}</td></tr>`).join('')}</tbody></table>
+     ${alertes.length>50?`<p class="muted" style="margin-top:8px">50 premiers affich\u00e9s sur ${alertes.length}.</p>`:''}`):''}</div>`;
+  if(partiel)return {kpis,alertesHtml};
+  $('#vue').innerHTML=`<div class="page">
+   ${kpis}
    <div class="card">
      <div class="actions-stock">
        <button class="btn" onclick="mouvementStock('ENTREE')">+ Entr\u00e9e en stock</button>
@@ -2343,14 +2424,7 @@ function vueStock(){
     ${q?`<p class="muted" style="margin-bottom:8px">${groupes.reduce((s,g)=>s+g.l.length,0)} r\u00e9sultat(s)</p>${listeGroupes()}`:''}
    </div>
    ${q?'':`
-   ${negs.length?replie('neg','\u26a0 Stocks n\u00e9gatifs ('+negs.length+')','var(--rouge)',()=>`
-     <p class="muted" style="margin-bottom:8px">Articles vendus sans avoir \u00e9t\u00e9 entr\u00e9s en stock. Ouvre un produit pour le corriger.</p>
-     <table class="mob"><tbody>${negs.map(p=>`<tr class="neg"><td><b>${esc(nomComplet(p))}</b></td><td class="tright" data-l="Stock"><b style="color:var(--rouge)">${nb(p.stock)}</b></td>
-       <td class="tright"><button class="btn sm ghost" onclick="editerProduit('${p.id}')">Ouvrir</button></td></tr>`).join('')}</tbody></table>`):''}
-   ${alertes.length?replie('appro','\u26a0 \u00c0 r\u00e9approvisionner ('+alertes.length+')','',()=>`
-     <table class="mob"><tbody>${alertes.slice(0,50).map(p=>`<tr class="alerte"><td><b>${esc(nomComplet(p))}</b></td><td class="tright" data-l="Stock"><b>${nb(p.stock||0)}</b></td>
-       <td class="tright" data-l="Seuil">${nb(p.seuil)}</td></tr>`).join('')}</tbody></table>
-     ${alertes.length>50?`<p class="muted" style="margin-top:8px">50 premiers affich\u00e9s sur ${alertes.length}.</p>`:''}`):''}
+   ${alertesHtml}
    ${dbl&&admin?`<div class="card" style="background:#FDECEA;box-shadow:none"><b style="color:var(--rouge)">${dbl} doublon(s)</b> dans le catalogue.
      <button class="btn ghost sm" style="margin-left:8px" onclick="vueDoublons()">D\u00e9tecter et fusionner</button></div>`:''}
    <div class="card">
@@ -2362,8 +2436,24 @@ function vueStock(){
    ${replie('mvt','Derniers mouvements','',()=>'<div id="mvts"><span class="muted">Chargement\u2026</span></div>')}`}
   </div>`;
   const i=$('#pq');
-  i.addEventListener('input',e=>{pq=e.target.value;vueStock();const n=$('#pq');n.focus();n.setSelectionRange(n.value.length,n.value.length)});
+  i.addEventListener('input',e=>{pq=e.target.value;clearTimeout(minuteurRecherche);minuteurRecherche=setTimeout(()=>{
+    if(S.page!=='stock'||!$('#pq'))return;vueStock();const n=$('#pq');n.focus();n.setSelectionRange(n.value.length,n.value.length)},150)});
   if(stockOuvert.mvt)chargerMouvements();
+}
+/* Stock modifi\u00e9 (vente, entr\u00e9e, autre appareil) : on remplace seulement les lignes concern\u00e9es et les compteurs */
+function majStock(s,avant){
+  const ch=s.docChanges(),ids=new Set(ch.map(c=>c.doc.id));
+  const simple=ch.length>0&&ch.length<=30&&ch.every(c=>{
+    if(c.type!=='modified')return false;
+    const a=avant.find(x=>x.id===c.doc.id),n=c.doc.data();
+    return a&&['cat','nom','marque','actif'].every(k=>a[k]===n[k])&&estPack(a)===estPack(n)
+      &&!a.pv===!n.pv&&((+a.stock||0)<0)===((+n.stock||0)<0)});
+  if(!simple||!$('#stk-kpis'))return redessinerVue();
+  S.produits.forEach(p=>{if(estPack(p)&&p.pack.some(c=>ids.has(c.ref)))ids.add(p.id)});
+  ids.forEach(id=>{const p=prodParId(id);if(p)document.querySelectorAll(`#vue tr[data-id="${id}"]`).forEach(tr=>tr.outerHTML=ligneProduit(p))});
+  const r=vueStock(true);
+  $('#stk-kpis').outerHTML=r.kpis;
+  const al=$('#stk-al');if(al)al.outerHTML=r.alertesHtml;
 }
 function chargerMouvements(){
   col('mouvements').orderBy('ts','desc').limit(30).get().then(s=>{
@@ -2521,6 +2611,7 @@ let stockLu=null;
 document.addEventListener('change',async e=>{
   if(e.target.id!=='fst')return;
   const f=e.target.files[0];if(!f)return;
+  try{await chargerLib('xlsx')}catch(err){return toast(err.message,'ko')}
   const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
   const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1}).slice(1);
   stockLu=rows.map(r=>({nom:String(r[0]||'').trim(),qte:+r[1]||0})).filter(x=>x.nom);
@@ -2946,6 +3037,7 @@ function bornes(){
   return ['2000-01-01','2100-01-01'];
 }
 async function chargerVentes(a,b){
+  if(a===b&&ventesJour&&ventesJour.j===a&&ecouteJour&&ecouteJour.j===a)return ventesJour.v;
   const k=a+'|'+b;
   if(S.ventesCache&&S.ventesCache.k===k)return S.ventesCache.v;
   const s=await col('ventes').where('date','>=',a).where('date','<=',b).get();
@@ -3049,6 +3141,7 @@ async function chargerTicketsPeriode(a,b){
   }catch(e){c.dataset.charge='';c.innerHTML='<tr><td style="color:var(--rouge)">Chargement impossible \u2014 replie et rouvre pour r\u00e9essayer</td></tr>'}
 }
 async function exporterPeriode(){
+  try{await chargerLib('xlsx')}catch(e){return toast(e.message,'ko')}
   const [a,b]=bornes(),v=await chargerVentes(a,b);
   const rows=[['Date','Ticket','Type','Vendeur','Cat\u00e9gorie','Produit','Marque','Qt\u00e9','Prix achat','Prix vente unitaire','Remise','Prix de vente total','Marge','Mode de r\u00e8glement']];
   v.sort((x,y)=>(x.ts||0)-(y.ts||0)).forEach(vt=>vt.lignes.forEach(l=>{
@@ -3111,6 +3204,7 @@ document.addEventListener('change',async e=>{
   if(e.target.id!=='fcn')return;
   const f=e.target.files[0];if(!f)return;
   try{
+    await chargerLib('xlsx');
     const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
     const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
     planCorrections=construirePlanCorrections(rows);
@@ -3596,6 +3690,7 @@ async function analyserFichier(e){
   const f=e.target.files[0];if(!f)return;
   $('#iprev').innerHTML='<div class="card"><span class="spin" style="border-color:#ddd;border-top-color:var(--or)"></span> Lecture\u2026</div>';
   try{
+    await chargerLib('xlsx');
     const wb=XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:true});
     const nomBDD=wb.SheetNames.find(n=>n.trim().toUpperCase()==='BDD');
     if(!nomBDD)throw new Error('Feuille BDD introuvable');
@@ -3721,7 +3816,7 @@ function confirmerSync(action){
   return confirm(enAttente+' op\u00e9ration(s) ne sont pas encore envoy\u00e9es au serveur.\n\nSi tu continues, elles resteront en attente sur cet appareil jusqu\u2019\u00e0 sa prochaine ouverture avec du r\u00e9seau.\n\nVoulez-vous quand m\u00eame '+action+' ?');
 }
 /* ============ VERSION ET MISE A JOUR ============ */
-const APP_VERSION='2.15.0';
+const APP_VERSION='2.16.0';
 let versionDispo=null;
 async function verifierVersion(silencieux){
   try{
