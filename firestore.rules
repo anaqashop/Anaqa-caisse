@@ -10,6 +10,9 @@ service cloud.firestore {
       // Déclarées ici (et non plus haut) pour avoir accès à {b} : sinon estAdmin() est toujours faux
       function compte()    { return get(/databases/$(database)/documents/boutiques/$(b)/comptes/$(request.auth.uid)).data; }
       function estAdmin()  { return connecte() && compte().role == 'admin'; }
+      // Mode test : tant que « Passer en mode production » n'est pas activé dans Options
+      function modeTest()  { return !exists(/databases/$(database)/documents/boutiques/$(b)/parametres/general)
+                               || get(/databases/$(database)/documents/boutiques/$(b)/parametres/general).data.get('modeProduction', false) != true; }
 
       allow read: if connecte();
       allow write: if estAdmin();
@@ -29,27 +32,30 @@ service cloud.firestore {
         allow update: if estAdmin() || (connecte() && champs(['stock']));
       }
 
-      // Ventes et retours : création seule. Aucune modification, aucune suppression, par personne.
+      // Ventes et retours : création seule. Aucune modification. Suppression uniquement
+      // par l'admin en mode test (bouton « Réinitialiser les données de test »).
       match /ventes/{id} {
         allow read:   if connecte();
         allow create: if connecte()
                       && request.resource.data.total is number
                       && request.resource.data.date is string;
-        allow update, delete: if false;
+        allow update: if false;
+        allow delete: if estAdmin() && modeTest();
       }
 
       // Journal des mouvements de stock : append-only
       match /mouvements/{id} {
         allow read:   if connecte();
         allow create: if connecte();
-        allow update, delete: if false;
+        allow update: if false;
+        allow delete: if estAdmin() && modeTest();
       }
 
       match /avoirs/{id} {
         allow read:   if connecte();
         allow create: if connecte();
         allow update: if connecte() && champs(['utilise','venteUtilisation']);
-        allow delete: if false;
+        allow delete: if estAdmin() && modeTest();
       }
 
       // Utilisateurs, droits et codes PIN : admin uniquement,
@@ -78,6 +84,17 @@ service cloud.firestore {
         allow create, update: if estAdmin() && request.resource.data.v is string
                               && request.resource.data.v.size() < 30000;
         allow delete: if estAdmin();
+      }
+
+      // Résumés par jour des statistiques : écrits à chaque vente, lus par Stats (semaine, mois, année)
+      match /resumes/{jour} {
+        allow read, create, update: if connecte();
+        allow delete: if estAdmin() && modeTest();
+      }
+
+      // Comptage d'inventaire partagé entre appareils (brouillon, avant validation)
+      match /inventaire/{id} {
+        allow read, write: if connecte();
       }
 
       match /imports/{id} {
